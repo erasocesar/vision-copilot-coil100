@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Copiloto de línea</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1d2433; --muted:#5b6475; --line:#d9dee7; --accent:#1f6feb; --ok:#1a7f37; --warn:#b54708; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f141c; --card:#171d27; --ink:#e6e9ef; --muted:#9aa4b5; --line:#2a3342; --accent:#4c8dff; --ok:#3fb950; --warn:#f0883e; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:14px 16px; border-bottom:1px solid var(--line); background:var(--card); display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:17px; margin:0 12px 0 0; }
+  main { display:grid; grid-template-columns: 1fr 320px; gap:16px; padding:16px; max-width:1200px; margin:0 auto; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  #log { height:60vh; overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
+  .msg { padding:10px 12px; border-radius:8px; white-space:pre-wrap; max-width:90%; }
+  .me { align-self:flex-end; background:var(--accent); color:#fff; }
+  .bot { align-self:flex-start; border:1px solid var(--line); }
+  .trace { font-size:12px; color:var(--muted); margin-top:6px; }
+  form.row, .row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  input, select, textarea, button { font:inherit; color:inherit; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  textarea { flex:1; min-height:44px; resize:vertical; }
+  button { cursor:pointer; background:var(--accent); color:#fff; border-color:var(--accent); }
+  button.secondary { background:transparent; color:var(--ink); border-color:var(--line); }
+  h2 { font-size:14px; margin:0 0 8px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .approval { border-top:1px solid var(--line); padding:8px 0; font-size:14px; }
+  .muted { color:var(--muted); font-size:13px; }
+  #thumbs img { width:56px; height:56px; object-fit:cover; border-radius:6px; border:1px solid var(--line); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Copiloto de línea P1/L1</h1>
+  <form id="login" class="row" style="margin:0">
+    <label class="muted" for="user">Usuario</label>
+    <input id="user" value="ana" pattern="[a-z0-9_.\-]{2,32}" required>
+    <label class="muted" for="role">Rol</label>
+    <select id="role">
+      <option value="supervisor">Supervisor</option>
+      <option value="quality">Calidad</option>
+      <option value="maintenance">Mantenimiento</option>
+      <option value="ml_engineer">Ingeniero de ML</option>
+      <option value="plant_manager">Gerente de planta</option>
+    </select>
+    <button>Abrir sesión</button>
+  </form>
+  <span id="who" class="muted"></span>
+</header>
+<main>
+  <section class="card">
+    <div id="log" aria-live="polite"></div>
+    <div id="thumbs" class="row"></div>
+    <form id="send" class="row">
+      <label class="secondary" for="file" style="align-self:center" title="Subir imágenes">📎</label>
+      <input id="file" type="file" accept="image/png,image/jpeg" multiple hidden>
+      <textarea id="text" placeholder="Pregunta, por ejemplo: ¿cómo va el turno 2?" required></textarea>
+      <button>Enviar</button>
+    </form>
+    <p class="muted">Demo con datos sintéticos de 24 h. El asistente no decide si el robot agarra: lo decide la política del servicio de visión.</p>
+  </section>
+  <aside class="card">
+    <h2>Aprobaciones pendientes</h2>
+    <div id="approvals" class="muted">Abre una sesión para verlas.</div>
+    <div class="row"><button class="secondary" id="refresh" type="button">Actualizar</button></div>
+  </aside>
+</main>
+<script>
+let sid = null, pendingImages = [];
+const $ = (id) => document.getElementById(id);
+
+function add(text, who, trace) {
+  const d = document.createElement("div");
+  d.className = "msg " + who;
+  d.textContent = text;
+  if (trace && trace.length) {
+    const t = document.createElement("div");
+    t.className = "trace";
+    t.textContent = "tools: " + trace.map(x => x.tool + (x.status === "ok" ? "" : " (" + x.status + ")")).join(", ");
+    d.appendChild(t);
+  }
+  $("log").appendChild(d);
+  $("log").scrollTop = $("log").scrollHeight;
+}
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, opts);
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.detail || body.error || ("HTTP " + r.status));
+  return body;
+}
+
+$("login").onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const b = await api("/api/session", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: $("user").value, role: $("role").value }) });
+    sid = b.session_id;
+    $("who").textContent = "Sesión de " + $("user").value + " como " + $("role").selectedOptions[0].text;
+    add("Sesión abierta. Puedes subir imágenes con el clip o preguntar por la línea.", "bot");
+    loadApprovals();
+  } catch (err) { add("No se pudo abrir la sesión: " + err.message, "bot"); }
+};
+
+$("file").onchange = async () => {
+  if (!sid) return add("Abre una sesión primero.", "bot");
+  for (const f of $("file").files) {
+    const fd = new FormData(); fd.append("file", f);
+    try {
+      const b = await api("/api/images", { method: "POST", headers: { "X-Session": sid }, body: fd });
+      pendingImages.push(b.image_id);
+      const img = document.createElement("img");
+      img.src = URL.createObjectURL(f); img.alt = f.name; img.title = b.quality.ok ? "calidad correcta" : b.quality.reasons.join(", ");
+      $("thumbs").appendChild(img);
+    } catch (err) { add("No se pudo subir " + f.name + ": " + err.message, "bot"); }
+  }
+  $("file").value = "";
+};
+
+$("send").onsubmit = async (e) => {
+  e.preventDefault();
+  if (!sid) return add("Abre una sesión primero.", "bot");
+  const text = $("text").value.trim(); if (!text) return;
+  add(text + (pendingImages.length ? "  [" + pendingImages.length + " imagen(es)]" : ""), "me");
+  $("text").value = "";
+  const images = pendingImages; pendingImages = []; $("thumbs").replaceChildren();
+  try {
+    const b = await api("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sid, message: text, image_ids: images }) });
+    add(b.reply, "bot", b.tool_trace);
+    if (b.pending_approval) loadApprovals();
+  } catch (err) { add("Error: " + err.message, "bot"); }
+};
+
+async function loadApprovals() {
+  if (!sid) return;
+  const box = $("approvals");
+  try {
+    const b = await api("/api/approvals?session_id=" + encodeURIComponent(sid));
+    box.replaceChildren();
+    if (!b.pending.length) { box.textContent = "No hay operaciones pendientes."; return; }
+    for (const a of b.pending) {
+      const d = document.createElement("div"); d.className = "approval";
+      const p = document.createElement("div");
+      p.textContent = a.op + " " + a.params_json + " pedida por " + a.requested_by + " (" + a.requested_role + "): " + a.justification;
+      d.appendChild(p);
+      const row = document.createElement("div"); row.className = "row";
+      let angle = null;
+      if (a.op === "send_manual_angle") {
+        angle = document.createElement("input"); angle.type = "number"; angle.min = 0; angle.max = 359; angle.placeholder = "Ángulo (°)";
+        row.appendChild(angle);
+      }
+      for (const [label, ok] of [["Aprobar", true], ["Rechazar", false]]) {
+        const btn = document.createElement("button"); btn.type = "button"; btn.textContent = label;
+        if (!ok) btn.className = "secondary";
+        btn.onclick = async () => {
+          try {
+            const body = { session_id: sid, approve: ok };
+            if (angle && angle.value !== "") body.manual_angle = Number(angle.value);
+            const r = await api("/api/approvals/" + a.approval_id + "/decision", { method: "POST",
+              headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+            add("Operación " + a.op + " " + (r.status === "approved" ? "aprobada y ejecutada." : "rechazada."), "bot");
+          } catch (err) { add("No se pudo decidir: " + err.message, "bot"); }
+          loadApprovals();
+        };
+        row.appendChild(btn);
+      }
+      d.appendChild(row); box.appendChild(d);
+    }
+  } catch (err) { box.textContent = err.message; }
+}
+$("refresh").onclick = loadApprovals;
+</script>
+</body>
+</html>

@@ -72,7 +72,10 @@ def build_graph(ctx, llm, checkpointer=None, settings=None):
         return upd
 
     def agent(state: AgentState) -> dict:
-        msgs = [SystemMessage(system_prompt(ctx, state.get("summary", "")))] + state["messages"]
+        # El tope se comprueba antes de cada llamada, no solo al empezar el turno.
+        if not budget_ok(ctx.conn, settings):
+            return {"stop_reason": "budget"}
+        msgs =[SystemMessage(system_prompt(ctx, state.get("summary", "")))] + state["messages"]
         try:
             resp = llm.invoke(msgs)
         except Exception as e:  # noqa: BLE001 - cualquier fallo del proveedor se trata igual

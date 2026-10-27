@@ -102,3 +102,10 @@ def test_settings_caps_respected(make_ctx, db):
     s = Settings(daily_usd_cap=0.0)
     out = run_turn(make_ctx(), ScriptedLLM([AIMessage(content="x")]), "hola", InMemorySaver(), settings=s)
     assert out["reply"] == STOP_MESSAGES["budget"]
+
+
+def test_budget_checked_before_each_llm_call(make_ctx, db):
+    s = Settings(total_usd_cap=0.0005)  # la primera llamada (1.050 tokens) ya supera el tope
+    llm = ScriptedLLM([call("get_camera_health", {}), AIMessage(content="no debería llegar")])
+    out = run_turn(make_ctx(), llm, "hola", InMemorySaver(), settings=s)
+    assert llm.calls == 1 and out["reply"] == STOP_MESSAGES["budget"]
