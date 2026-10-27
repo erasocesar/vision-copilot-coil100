@@ -67,3 +67,13 @@ def test_kernel_ridge_angle(small):
     m = VisionModel(cfg).fit(images[train], index.obj_id[train], index.angle[train], index.path[train])
     p = m.predict(images[~train][:3])
     assert all(p_.angle is not None and 0 <= p_.angle < 360 for p_ in p)
+
+
+def test_calibration_keeps_accuracy(small):
+    """Regresión: la calibración no debe hundir el acierto (folds sin barajar perdían sectores de ángulo)."""
+    index, images, train = small
+    cal = VisionModel(ModelConfig(classifier="svm", pca_dims=32, calibrate=True)).fit(
+        images[train], index.obj_id[train], index.angle[train], index.path[train])
+    preds = cal.predict(images[~train])
+    acc = np.mean([p.obj_id == t for p, t in zip(preds, index.obj_id[~train])])
+    assert acc >= 0.97

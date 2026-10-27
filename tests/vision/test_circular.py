@@ -43,15 +43,29 @@ def _views(fn):
 
 def test_symmetry_full():
     feats, angles = _views(lambda a: np.ones(16))
-    assert symmetry_period(feats, angles) == 0
+    assert symmetry_period(feats, angles, ref_d90=1.0) == 0
 
 
 def test_symmetry_180():
     # vistas que cambian de forma continua y se repiten cada 180°
     feats, angles = _views(lambda a: np.array([np.cos(np.radians(2 * a)), np.sin(np.radians(2 * a))] * 8))
-    assert symmetry_period(feats, angles) == 180
+    assert symmetry_period(feats, angles, ref_d90=5.66) == 180
 
 
 def test_symmetry_none():
     feats, angles = _views(lambda a: np.array([np.cos(np.radians(a)), np.sin(np.radians(a))] * 8))
-    assert symmetry_period(feats, angles) == 360
+    assert symmetry_period(feats, angles, ref_d90=4.0) == 360
+
+
+def test_symmetry_independent_of_spacing():
+    """Con vistas cada 30° un objeto asimétrico no debe salir simétrico."""
+    feats, angles = _views(lambda a: np.array([np.cos(np.radians(a)), np.sin(np.radians(a))] * 8))
+    keep = angles % 30 == 0
+    assert symmetry_period(feats[keep], angles[keep], ref_d90=4.0) == 360
+
+
+def test_symmetry_with_20deg_spacing():
+    """Con vistas cada 20° no hay parejas a 90° exactos; debe usar 80° o 100°."""
+    feats, angles = _views(lambda a: np.ones(16))
+    keep = angles % 20 == 0
+    assert symmetry_period(feats[keep], angles[keep], ref_d90=1.0) == 0

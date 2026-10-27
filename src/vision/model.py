@@ -12,11 +12,13 @@ from typing import Literal
 
 import joblib
 import numpy as np
-from sklearn.calibration import CalibratedClassifierCV
+from sklearn.base import clone
+from sklearn.isotonic import IsotonicRegression
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -24,7 +26,7 @@ from sklearn.svm import SVC
 
 from .circular import circ_mean, circ_std
 from .features import build_features
-from .symmetry import symmetry_period
+from .symmetry import rotation_distances, symmetry_period
 
 
 @dataclass
@@ -52,10 +54,9 @@ class ModelConfig:
     class_features: list[str] = field(default_factory=lambda: ["color", "hog"])
     angle_features: list[str] = field(default_factory=lambda: ["hog", "pixels"])
     pca_dims: int = 128
-    k_angle: int = 3
+    k_angle: int = 2
     angle_method: Literal["knn", "kernel_ridge"] = "knn"
     calibrate: bool = True
-    calibration_method: Literal["isotonic", "sigmoid"] = "sigmoid"
     seed: int = 42
 
 
@@ -101,13 +102,22 @@ class VisionModel:
         self.class_proj = _projector(Xc.shape[1], len(Xc), cfg.pca_dims, cfg.seed).fit(Xc)
         Zc = self.class_proj.transform(Xc)
         base = _classifier(cfg.classifier, cfg.seed)
+        if cfg.classifier == "svm":
+            base.set_params(probability=True)
+        self.calibrator = None
         min_per_class = np.bincount(self.obj_ids)[np.unique(self.obj_ids)].min()
         if cfg.calibrate and min_per_class >= 3:
-            self.clf = CalibratedClassifierCV(base, method=cfg.calibration_method, cv=3).fit(Zc, self.obj_ids)
-        else:
-            if cfg.classifier == "svm":
-                base.set_params(probability=True)
-            self.clf = base.fit(Zc, self.obj_ids)
+            # Calibración de la etiqueta ganadora: la clase la decide el clasificador sin tocar y
+            # su confianza se ajusta con isotónica sobre predicciones fuera de fold.
+            # Folds barajados: las filas vienen ordenadas por ángulo y sin barajar cada fold
+            # perdería un sector entero de vistas.
+            folds = StratifiedKFold(n_splits=3, shuffle=True, random_state=cfg.seed)
+            oof = cross_val_predict(clone(base), Zc, self.obj_ids, cv=folds, method="predict_proba")
+            classes = np.unique(self.obj_ids)
+            top = oof.max(axis=1)
+            correct = classes[oof.argmax(axis=1)] == self.obj_ids
+            self.calibrator = IsotonicRegression(y_min=0.0, y_max=1.0, out_of_bounds="clip").fit(top, correct)
+        self.clf = base.fit(Zc, self.obj_ids)
         self.class_nn = NearestNeighbors(n_neighbors=10).fit(Zc)
 
         Xa = featurize(images, cfg.angle_features, precomputed)
@@ -116,10 +126,13 @@ class VisionModel:
         self.angle_index: dict[int, tuple[NearestNeighbors, np.ndarray, np.ndarray]] = {}
         self.angle_reg: dict[int, KernelRidge] = {}
         self.symmetry: dict[int, int] = {}
+        d90s = [rotation_distances(Za[self.obj_ids == o], self.angles[self.obj_ids == o])[0]
+                for o in np.unique(self.obj_ids)]
+        self.ref_d90 = float(np.median([d for d in d90s if d is not None]))
         for o in np.unique(self.obj_ids):
             rows = np.flatnonzero(self.obj_ids == o)
             Z, ang = Za[rows], self.angles[rows]
-            self.symmetry[int(o)] = symmetry_period(Z, ang)
+            self.symmetry[int(o)] = symmetry_period(Z, ang, self.ref_d90)
             k = min(cfg.k_angle, len(rows))
             self.angle_index[int(o)] = (NearestNeighbors(n_neighbors=k).fit(Z), ang, rows)
             if cfg.angle_method == "kernel_ridge":
@@ -149,7 +162,10 @@ class VisionModel:
             angle, std = self._estimate_angle(obj, Za[i:i + 1])
             topk = [Neighbor(int(self.obj_ids[n]), int(self.angles[n]), float(d), str(self.paths[n]))
                     for d, n in zip(dist[i][:top_k], nbr[i][:top_k])]
-            preds.append(Prediction(obj, float(proba[i, j]), float(dist[i, 0]), angle, std, self.symmetry[obj], topk))
+            prob = float(proba[i, j])
+            if self.calibrator is not None:
+                prob = float(self.calibrator.predict([prob])[0])
+            preds.append(Prediction(obj, prob, float(dist[i, 0]), angle, std, self.symmetry[obj], topk))
         return preds
 
     def _estimate_angle(self, obj: int, z: np.ndarray) -> tuple[float | None, float]:
