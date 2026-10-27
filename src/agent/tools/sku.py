@@ -15,7 +15,7 @@ MAX_GAP_DEG = 15
 
 class RegisterIn(BaseModel):
     name: str = Field(min_length=2, max_length=80)
-    image_ids: list[Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]] = Field(min_length=6, max_length=72)
+    image_ids: list[Annotated[str, Field(pattern=r"^[0-9a-f]{12,64}$")]] = Field(min_length=6, max_length=72)
     angles: list[int] = Field(min_length=6, max_length=72)
 
     @model_validator(mode="after")

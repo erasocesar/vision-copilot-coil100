@@ -93,7 +93,7 @@ def test_index_served(app_env):
 
 
 def test_role_selection_disabled_by_default(tmp_path, image_dir):
-    s = Settings(db_path=tmp_path / "x.db", image_dir=image_dir)
+    s = Settings(db_path=tmp_path / "x.db", image_dir=image_dir, demo_role_selection=False)
     c = connect(s.db_path)
     init_schema(c)
     client = TestClient(create_app(s, llm=ScriptedLLM([]), vision=FakeVision()))

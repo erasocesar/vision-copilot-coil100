@@ -8,15 +8,19 @@ from src.common.db import rows
 
 from . import ToolError, register
 
-IMAGE_ID = Field(pattern=r"^[0-9a-f]{64}$", description="Identificador de la imagen (SHA-256) devuelto al subirla")
+IMAGE_ID = Field(pattern=r"^[0-9a-f]{12,64}$",
+                 description="Identificador de la imagen (los 12 primeros caracteres del SHA-256 bastan)")
 SCORE_REASONS = ("puntuación de agarre", "confianza de clase", "ángulo incierto")
 
 
 def image_path(ctx, image_id: str) -> Path:
-    if not re.fullmatch(r"[0-9a-f]{64}", image_id or ""):
-        raise ToolError("invalid_args", "image_id debe ser un SHA-256 en hexadecimal")
+    if not re.fullmatch(r"[0-9a-f]{12,64}", image_id or ""):
+        raise ToolError("invalid_args", "image_id debe ser hexadecimal (12 a 64 caracteres)")
     base = Path(ctx.image_dir).resolve()
-    p = (base / f"{image_id}.png").resolve()
+    matches = list(base.glob(f"{image_id}*.png")) if len(image_id) < 64 else [base / f"{image_id}.png"]
+    if len(matches) > 1:
+        raise ToolError("ambiguous_image_id", "hay varias imágenes con ese prefijo; usa más caracteres")
+    p = matches[0].resolve() if matches else base / "missing.png"
     if p.parent != base or not p.exists():
         raise ToolError("image_not_found", "no hay ninguna imagen con ese identificador; pide al usuario que la suba")
     return p
@@ -63,7 +67,11 @@ def analyze_image(ctx, a: AnalyzeIn) -> dict:
     return {
         "image_id": r["image_id"], "obj_id": p["obj_id"], "class_prob": round(p["class_prob"], 3),
         "angle": d["angle"], "angle_std": round(p["angle_std"], 1), "angle_mode": d["angle_mode"],
-        "symmetry": p["symmetry"], "pick_score": round(d["pick_score"], 3), "line_threshold": th,
+        "symmetry": p["symmetry"], "angle_instruction": {
+            "any": "objeto simétrico: cualquier giro vale, el robot no necesita compensar el ángulo",
+            "mod180": f"objeto simétrico cada 180°: el robot compensa {d['angle']}° (o {d['angle'] + 180:.1f}°, es equivalente)",
+            "exact": f"el robot compensa {d['angle']}°"}[d["angle_mode"]],
+        "pick_score": round(d["pick_score"], 3), "line_threshold": th,
         "action": action, "reasons": reasons, "quality_ok": r["quality"]["ok"],
         "evidence_topk": [{"obj_id": n["obj_id"], "angle": n["angle"], "distance": round(n["distance"], 1)}
                           for n in p["topk"]],

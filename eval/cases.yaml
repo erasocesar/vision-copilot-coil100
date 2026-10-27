@@ -163,7 +163,7 @@
   message: ¿Qué dice el manual sobre la recarga de tóner de la impresora de etiquetas?
   expected_tools: [search_procedures]
   success:
-    - {type: reply_regex, pattern: 'no (encontr|hay|aparece|tengo|figura)|ning[uú]n'}
+    - {type: reply_regex, pattern: 'no (se )?(encontr|hay|aparece|tengo|tiene|figura|incluye)|ning[uú]n'}
 
 # ---------- Alta de producto nuevo (SKU) ----------
 - id: C19

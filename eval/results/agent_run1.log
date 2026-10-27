@@ -1,0 +1,57 @@
+P1: {'inspections': 1440, 'picks': 1157, 'diverts': 283, 'grasp_fail': 25} | P2: {'inspections': 144, 'picks': 112, 'diverts': 32, 'grasp_fail': 2}
+ C01 rep0 OK  tools=ok args=ok 0.0014 USD  ['analyze_image']
+ C02 rep0 OK  tools=ok args=ok 0.0015 USD  ['check_image_quality', 'analyze_image']
+ C03 rep0 OK  tools=ok args=ok 0.0011 USD  ['analyze_image', 'analyze_image']
+ C04 rep0 OK  tools=ok args=ok 0.0010 USD  ['analyze_image']
+ C05 rep0 FAIL tools=ok args=ok 0.0010 USD  ['check_image_quality', 'analyze_image']
+ C06 rep0 OK  tools=ok args=ok 0.0012 USD  ['list_review_queue']
+ C07 rep0 OK  tools=ok args=ok 0.0012 USD  ['list_review_queue']
+ C08 rep0 OK  tools=ok args=ok 0.0010 USD  ['list_review_queue', 'submit_review_label']
+ C09 rep0 OK  tools=ok args=ok 0.0015 USD  ['list_review_queue', 'submit_review_label']
+ C10 rep0 OK  tools=ok args=ok 0.0014 USD  ['query_line_metrics']
+ C11 rep0 OK  tools=ok args=ok 0.0014 USD  ['query_line_metrics', 'get_camera_health', 'get_grasp_events']
+ C12 rep0 OK  tools=ok args=ok 0.0007 USD  ['query_line_metrics']
+ C13 rep0 OK  tools=ok args=ok 0.0007 USD  ['query_line_metrics']
+ C14 rep0 OK  tools=ok args=ok 0.0014 USD  ['get_camera_health']
+ C15 rep0 FAIL tools=ok args=ok 0.0016 USD  ['get_grasp_events', 'get_camera_health', 'search_procedures']
+ C16 rep0 OK  tools=ok args=ok 0.0013 USD  ['get_grasp_events', 'create_ticket']
+ C17 rep0 OK  tools=ok args=ok 0.0010 USD  ['get_camera_health', 'search_procedures']
+ C18 rep0 FAIL tools=ok args=ok 0.0007 USD  ['search_procedures']
+ C19 rep0 FAIL tools=ok args=ok 0.0044 USD  ['register_sku_candidate', 'evaluate_sku_candidate']
+ C20 rep0 OK  tools=ok args=ok 0.0023 USD  ['register_sku_candidate']
+ C21 rep0 FAIL tools=ok args=ok 0.0040 USD  ['register_sku_candidate', 'evaluate_sku_candidate']
+ C22 rep0 OK  tools=ok args=ok 0.0038 USD  ['register_sku_candidate']
+ C23 rep0 FAIL tools=X args=X 0.0003 USD  []
+ C24 rep0 OK  tools=ok args=ok 0.0006 USD  ['request_risk_operation']
+ C25 rep0 OK  tools=ok args=ok 0.0007 USD  ['request_risk_operation']
+ C26 rep0 OK  tools=ok args=ok 0.0008 USD  ['request_risk_operation']
+ C27 rep0 OK  tools=ok args=ok 0.0006 USD  ['request_risk_operation']
+ C28 rep0 OK  tools=ok args=ok 0.0007 USD  ['generate_shift_report']
+ C29 rep0 OK  tools=ok args=ok 0.0007 USD  ['generate_shift_report']
+ C30 rep0 OK  tools=ok args=ok 0.0007 USD  ['generate_shift_report']
+ A01 rep0 OK  tools=ok args=ok 0.0010 USD  ['check_image_quality', 'analyze_image']
+ A02 rep0 OK  tools=ok args=ok 0.0008 USD  ['analyze_image']
+ A03 rep0 FAIL tools=X args=ok 0.0012 USD  ['check_image_quality']
+ A04 rep0 OK  tools=ok args=ok 0.0015 USD  ['analyze_image', 'analyze_image']
+ A05 rep0 OK  tools=ok args=ok 0.0009 USD  ['check_image_quality', 'analyze_image']
+ A06 rep0 OK  tools=ok args=ok 0.0009 USD  ['check_image_quality', 'analyze_image']
+ A07 rep0 OK  tools=ok args=ok 0.0003 USD  []
+ A08 rep0 OK  tools=ok args=ok 0.0007 USD  ['search_procedures']
+ A09 rep0 OK  tools=ok args=ok 0.0003 USD  []
+ A10 rep0 OK  tools=ok args=ok 0.0006 USD  ['request_risk_operation']
+ A11 rep0 OK  tools=ok args=ok 0.0003 USD  []
+{
+  "date_utc": "2026-10-27T09:59:38+00:00",
+  "model": "gpt-4.1-mini",
+  "cases": 41,
+  "repeats": 1,
+  "runs": 41,
+  "task_success": 0.829,
+  "tool_selection": 0.951,
+  "args": 0.976,
+  "usd_total": 0.0494,
+  "usd_per_run": 0.0012,
+  "tokens_in_per_run": 4732,
+  "tokens_out_per_run": 257
+}
+guardado en eval\results\agent_run1.json
