@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     image_dir: Path = Path("appdata/images")
     db_path: Path = Path("appdata/line.db")
     demo_faults: bool = False
+    # Solo demo: el rol se elige al abrir sesión. En producción vendría de Entra ID (ver threat model).
+    demo_role_selection: bool = False
 
     vision_url: str = "http://localhost:8001"
     openai_api_key: str = ""

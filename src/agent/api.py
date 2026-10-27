@@ -30,6 +30,8 @@ log = logging.getLogger("agent-api")
 STATIC = Path(__file__).with_name("static")
 PLANT, LINE = "P1", "L1"
 MAX_MSGS_PER_HOUR = 30
+MAX_GLOBAL_MSGS_PER_HOUR = 150
+MAX_SESSIONS = 200
 MAX_UPLOAD = 5_000_000
 
 
@@ -75,6 +77,7 @@ def create_app(settings: Settings | None = None, llm=None, vision=None) -> FastA
     llm = llm or make_llm(s) or Unavailable()
     vision = vision or VisionClient(s.vision_url)
     sessions: dict[str, dict] = {}
+    global_msgs: deque = deque()
 
     app = FastAPI(title="Copiloto de línea", version="1.0.0")
 
@@ -99,11 +102,16 @@ def create_app(settings: Settings | None = None, llm=None, vision=None) -> FastA
 
     @app.post("/api/session")
     def open_session(body: SessionIn):
+        if not s.demo_role_selection:
+            raise HTTPException(403, "la selección de rol solo está activa en modo demo (DEMO_ROLE_SELECTION=true)")
         if body.role not in ROLES:
             raise HTTPException(422, f"rol no válido; usa uno de {', '.join(ROLES)}")
+        if len(sessions) >= MAX_SESSIONS:
+            oldest = min(sessions, key=lambda k: sessions[k]["created"])
+            sessions.pop(oldest)
         sid = secrets.token_urlsafe(16)
         sessions[sid] = {"session_id": sid, "user_id": body.user_id, "role": body.role,
-                         "msgs": deque(), "seen_decisions": set()}
+                         "msgs": deque(), "seen_decisions": set(), "created": time.time()}
         return {"session_id": sid, "plant_id": PLANT, "line_id": LINE, "role": body.role}
 
     @app.post("/api/images")
@@ -139,9 +147,12 @@ def create_app(settings: Settings | None = None, llm=None, vision=None) -> FastA
         now = time.time()
         while sess["msgs"] and now - sess["msgs"][0] > 3600:
             sess["msgs"].popleft()
-        if len(sess["msgs"]) >= MAX_MSGS_PER_HOUR:
-            raise HTTPException(429, f"máximo {MAX_MSGS_PER_HOUR} mensajes por hora en la demo")
+        while global_msgs and now - global_msgs[0] > 3600:
+            global_msgs.popleft()
+        if len(sess["msgs"]) >= MAX_MSGS_PER_HOUR or len(global_msgs) >= MAX_GLOBAL_MSGS_PER_HOUR:
+            raise HTTPException(429, f"máximo {MAX_MSGS_PER_HOUR} mensajes por hora y sesión en la demo")
         sess["msgs"].append(now)
+        global_msgs.append(now)
         bad = [i for i in body.image_ids if not re.fullmatch(r"[0-9a-f]{64}", i)]
         if bad:
             raise HTTPException(422, "image_ids no válidos")

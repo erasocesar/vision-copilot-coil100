@@ -23,7 +23,7 @@ def app_env(tmp_path, image_dir):
     vision.http = httpx.Client(base_url="http://vision", transport=httpx.MockTransport(
         lambda req: httpx.Response(200, json={"image_id": IMG_ID, "quality": {"ok": True, "reasons": []}})))
     llm = ScriptedLLM([])
-    s = Settings(db_path=db, image_dir=image_dir)
+    s = Settings(db_path=db, image_dir=image_dir, demo_role_selection=True)
     app = create_app(s, llm=llm, vision=vision)
     return TestClient(app, raise_server_exceptions=False), llm
 
@@ -90,3 +90,20 @@ def test_index_served(app_env):
     client, _ = app_env
     r = client.get("/")
     assert r.status_code == 200 and "Copiloto de línea" in r.text
+
+
+def test_role_selection_disabled_by_default(tmp_path, image_dir):
+    s = Settings(db_path=tmp_path / "x.db", image_dir=image_dir)
+    c = connect(s.db_path)
+    init_schema(c)
+    client = TestClient(create_app(s, llm=ScriptedLLM([]), vision=FakeVision()))
+    assert client.post("/api/session", json={"user_id": "ana", "role": "supervisor"}).status_code == 403
+
+
+def test_global_rate_limit_across_sessions(app_env, monkeypatch):
+    import src.agent.api as api
+    monkeypatch.setattr(api, "MAX_GLOBAL_MSGS_PER_HOUR", 3)
+    client, _ = app_env
+    codes = [client.post("/api/chat", json={"session_id": open_session(client), "message": "hola"}).status_code
+             for _ in range(4)]
+    assert codes == [200, 200, 200, 429]
