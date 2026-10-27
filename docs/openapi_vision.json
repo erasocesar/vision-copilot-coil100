@@ -1,0 +1,541 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Servicio de visión COIL-100",
+    "description": "Identificación de objeto, ángulo, vistas similares y decisión para el robot.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "summary": "Models",
+        "operationId": "models_v1_models_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/quality": {
+      "post": {
+        "summary": "Quality",
+        "operationId": "quality_v1_quality_post",
+        "parameters": [
+          {
+            "name": "x-demo-fault",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Demo-Fault"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_quality_v1_quality_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/predict": {
+      "post": {
+        "summary": "Predict",
+        "operationId": "predict_v1_predict_post",
+        "parameters": [
+          {
+            "name": "top_k",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10,
+              "minimum": 1,
+              "default": 5,
+              "title": "Top K"
+            }
+          },
+          {
+            "name": "x-demo-fault",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Demo-Fault"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_predict_v1_predict_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sku/evaluate": {
+      "post": {
+        "summary": "Sku Evaluate",
+        "description": "Evalúa las vistas de un producto nuevo sin tocar el modelo en producción.",
+        "operationId": "sku_evaluate_v1_sku_evaluate_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_sku_evaluate_v1_sku_evaluate_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_predict_v1_predict_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_predict_v1_predict_post"
+      },
+      "Body_quality_v1_quality_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_quality_v1_quality_post"
+      },
+      "Body_sku_evaluate_v1_sku_evaluate_post": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "angles": {
+            "type": "string",
+            "title": "Angles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files",
+          "angles"
+        ],
+        "title": "Body_sku_evaluate_v1_sku_evaluate_post"
+      },
+      "DecisionOut": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "obj_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Obj Id"
+          },
+          "angle": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Angle"
+          },
+          "angle_mode": {
+            "type": "string",
+            "title": "Angle Mode"
+          },
+          "pick_score": {
+            "type": "number",
+            "title": "Pick Score"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action",
+          "obj_id",
+          "angle",
+          "angle_mode",
+          "pick_score",
+          "reasons"
+        ],
+        "title": "DecisionOut"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "NeighborOut": {
+        "properties": {
+          "obj_id": {
+            "type": "integer",
+            "title": "Obj Id"
+          },
+          "angle": {
+            "type": "integer",
+            "title": "Angle"
+          },
+          "distance": {
+            "type": "number",
+            "title": "Distance"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "obj_id",
+          "angle",
+          "distance",
+          "path"
+        ],
+        "title": "NeighborOut"
+      },
+      "PredictResponse": {
+        "properties": {
+          "image_id": {
+            "type": "string",
+            "title": "Image Id"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/QualityOut"
+          },
+          "prediction": {
+            "$ref": "#/components/schemas/PredictionOut"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/DecisionOut"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "latency_ms": {
+            "type": "number",
+            "title": "Latency Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image_id",
+          "quality",
+          "prediction",
+          "decision",
+          "model_version",
+          "latency_ms"
+        ],
+        "title": "PredictResponse"
+      },
+      "PredictionOut": {
+        "properties": {
+          "obj_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Obj Id"
+          },
+          "class_prob": {
+            "type": "number",
+            "title": "Class Prob"
+          },
+          "ood_distance": {
+            "type": "number",
+            "title": "Ood Distance"
+          },
+          "angle": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Angle"
+          },
+          "angle_std": {
+            "type": "number",
+            "title": "Angle Std"
+          },
+          "symmetry": {
+            "type": "integer",
+            "title": "Symmetry"
+          },
+          "topk": {
+            "items": {
+              "$ref": "#/components/schemas/NeighborOut"
+            },
+            "type": "array",
+            "title": "Topk"
+          }
+        },
+        "type": "object",
+        "required": [
+          "obj_id",
+          "class_prob",
+          "ood_distance",
+          "angle",
+          "angle_std",
+          "symmetry",
+          "topk"
+        ],
+        "title": "PredictionOut"
+      },
+      "QualityOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "blur": {
+            "type": "number",
+            "title": "Blur"
+          },
+          "brightness": {
+            "type": "number",
+            "title": "Brightness"
+          },
+          "fg_ratio": {
+            "type": "number",
+            "title": "Fg Ratio"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "blur",
+          "brightness",
+          "fg_ratio",
+          "reasons"
+        ],
+        "title": "QualityOut"
+      },
+      "QualityResponse": {
+        "properties": {
+          "image_id": {
+            "type": "string",
+            "title": "Image Id"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/QualityOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image_id",
+          "quality"
+        ],
+        "title": "QualityResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
