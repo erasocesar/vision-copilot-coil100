@@ -65,7 +65,8 @@ def record(res: dict, family: str, name: str) -> dict:
            **res["metrics"]}
     row["selection_score"] = score(row)
     SUMMARY.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame([row]).to_csv(SUMMARY, mode="a", header=not SUMMARY.exists(), index=False)
+    prev = pd.read_csv(SUMMARY) if SUMMARY.exists() else pd.DataFrame()
+    pd.concat([prev, pd.DataFrame([row])], ignore_index=True).to_csv(SUMMARY, index=False)
     print(f"[{res['protocol']}] {family}/{name}: val_cov={row['val_coverage']:.3f} "
           f"val_wrong={row['val_wrong_pick_rate']:.4f} test_acc={row['test_class_acc']:.3f} "
           f"test_cov={row['test_coverage']:.3f} test_wrong={row['test_wrong_pick_rate']:.4f}", flush=True)
