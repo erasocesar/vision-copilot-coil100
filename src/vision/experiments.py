@@ -1,5 +1,6 @@
 """Ejecución de un protocolo: umbrales en validación, una sola evaluación en prueba, registro en MLflow."""
 import time
+from pathlib import Path
 from dataclasses import asdict
 
 import numpy as np
@@ -120,7 +121,7 @@ def validation_frame(cfg, index, feats, split: Split) -> pd.DataFrame:
 
 
 def run_protocol(protocol: str, cfg: ModelConfig, index: pd.DataFrame, feats: dict[str, np.ndarray],
-                 data_sha: str, mlflow_uri: str | None = "file:./mlruns", run_name: str = "") -> dict:
+                 data_sha: str, mlflow_uri: str | None = "sqlite:///mlruns/mlflow.db", run_name: str = "") -> dict:
     split = make_split(index, protocol)
     val = validation_frame(cfg, index, feats, split)
     th = choose_thresholds(val)
@@ -135,8 +136,12 @@ def run_protocol(protocol: str, cfg: ModelConfig, index: pd.DataFrame, feats: di
 
     if mlflow_uri:
         import mlflow
+        Path("mlruns/artifacts").mkdir(parents=True, exist_ok=True)
         mlflow.set_tracking_uri(mlflow_uri)
-        mlflow.set_experiment(f"protocol_{protocol}")
+        exp = f"protocol_{protocol}"
+        if mlflow.get_experiment_by_name(exp) is None:
+            mlflow.create_experiment(exp, artifact_location=(Path("mlruns/artifacts") / exp).resolve().as_uri())
+        mlflow.set_experiment(exp)
         with mlflow.start_run(run_name=run_name or f"{cfg.classifier}-{'+'.join(cfg.class_features)}"):
             params = {k: (",".join(v) if isinstance(v, list) else v) for k, v in asdict(cfg).items()}
             mlflow.log_params({**params, "protocol": protocol, "data_sha256": data_sha})
