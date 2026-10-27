@@ -12,7 +12,8 @@ from dataclasses import asdict
 from pathlib import Path
 
 import cv2
-from fastapi import FastAPI, File, Header, Query, Request, UploadFile
+import numpy as np
+from fastapi import FastAPI, File, Form, Header, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -20,6 +21,7 @@ from src.common.config import Settings, get_settings
 
 from .model import VisionModel
 from .policy import Thresholds, decide
+from .sku import evaluate_views
 from .quality import MAX_BYTES, InvalidImage, QualityRefs, check_quality, decode_image
 
 log = logging.getLogger("vision-api")
@@ -151,6 +153,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"image_id": _store(raw, img), "quality": asdict(q), "prediction": asdict(pred),
                 "decision": asdict(dec), "model_version": version,
                 "latency_ms": round((time.perf_counter() - t0) * 1000, 2)}
+
+    @app.post("/v1/sku/evaluate")
+    async def sku_evaluate(files: list[UploadFile] = File(...), angles: str = Form(...)):
+        """Evalúa las vistas de un producto nuevo sin tocar el modelo en producción."""
+        try:
+            angle_list = [int(a) for a in angles.split(",")]
+        except ValueError:
+            raise InvalidImage("angles debe ser una lista de enteros separada por comas") from None
+        if not 6 <= len(files) <= 72 or len(files) != len(angle_list):
+            raise InvalidImage("se necesitan entre 6 y 72 vistas, una por ángulo")
+        imgs = np.stack([decode_image(await _read_limited(f)) for f in files])
+        return evaluate_views(model, imgs, angle_list, thresholds.max_ood)
 
     return app
 

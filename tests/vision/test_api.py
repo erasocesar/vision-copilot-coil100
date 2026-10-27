@@ -68,3 +68,19 @@ def test_500_hides_traceback(client, monkeypatch):
     r = client.post("/v1/predict", files={"file": ("x.png", SAMPLE.read_bytes(), "image/png")})
     assert r.status_code == 500 and "Traceback" not in r.text and "secreto" not in r.text
     assert "error_id" in r.json()
+
+
+def test_sku_evaluate(client):
+    angles = list(range(0, 360, 30))
+    files = [("files", (f"obj1__{a}.png", Path(f"data/raw/obj1__{a}.png").read_bytes(), "image/png")) for a in angles]
+    r = client.post("/v1/sku/evaluate", files=files, data={"angles": ",".join(map(str, angles))})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["max_gap_deg"] == 30 and body["meets_criteria"] is False
+    assert any("hueco" in x for x in body["reasons"])
+
+
+def test_sku_evaluate_bad_angles(client):
+    files = [("files", ("a.png", SAMPLE.read_bytes(), "image/png"))] * 6
+    r = client.post("/v1/sku/evaluate", files=files, data={"angles": "1,2,x"})
+    assert r.status_code == 400

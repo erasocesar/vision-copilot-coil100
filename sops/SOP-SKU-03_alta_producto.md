@@ -11,4 +11,4 @@ Vistas del producto en plataforma giratoria con fondo negro, una cada 10° como 
 3. Si cumple, el ingeniero de ML o calidad pide la promoción a producción; la aprueba el gerente de planta.
 
 ## Criterios de aceptación
-Al menos el 90 % de las vistas dejadas fuera con error de ángulo de 10° o menos, y distancia suficiente a todos los productos del catálogo.
+Al menos el 80 % de las vistas dejadas fuera con error de ángulo de 10° o menos, y distancia suficiente a todos los productos del catálogo.

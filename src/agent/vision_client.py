@@ -31,6 +31,23 @@ class VisionClient:
     def quality(self, image_path: Path) -> dict:
         return self._post("/v1/quality", image_path, {})
 
+    def evaluate_views(self, image_paths: list[Path], angles: list[int]) -> dict:
+        if self.clock() < self.open_until:
+            raise VisionError("circuit_open", "servicio de visión en pausa tras fallos seguidos")
+        files = [("files", (Path(p).name, Path(p).read_bytes(), "image/png")) for p in image_paths]
+        try:
+            r = self.http.post("/v1/sku/evaluate", files=files, data={"angles": ",".join(map(str, angles))},
+                               timeout=60)
+        except httpx.TimeoutException:
+            raise VisionError("timeout", "la evaluación del producto tardó demasiado") from None
+        except httpx.HTTPError as e:
+            raise VisionError("server", type(e).__name__) from None
+        if r.status_code >= 500:
+            raise VisionError("server", f"HTTP {r.status_code}")
+        if r.status_code >= 400:
+            raise VisionError("bad_request", str(r.json().get("detail", r.status_code)))
+        return r.json()
+
     def _post(self, url: str, image_path: Path, params: dict) -> dict:
         if self.clock() < self.open_until:
             raise VisionError("circuit_open", "servicio de visión en pausa tras fallos seguidos")
