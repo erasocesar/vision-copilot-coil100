@@ -1,0 +1,45 @@
+# Override para el VPS con Traefik ya instalado (red externa root_default, resolvedor mytlschallenge).
+# Uso en el VPS:
+#   docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
+# Requiere en .env: ML_INDRA_HOST y ML_INDRA_BASICAUTH (usuario:hash bcrypt de htpasswd -nbB, con cada $ duplicado).
+
+services:
+  vision-api:
+    command: uvicorn src.vision.api:app --host 0.0.0.0 --port 8001 --root-path /vision
+    networks: [default, traefik]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "root_default"
+      traefik.http.routers.mlindra-vision.rule: "Host(`${ML_INDRA_HOST}`) && PathPrefix(`/vision`)"
+      traefik.http.routers.mlindra-vision.entrypoints: "websecure"
+      traefik.http.routers.mlindra-vision.tls.certresolver: "mytlschallenge"
+      traefik.http.routers.mlindra-vision.middlewares: "mlindra-auth,mlindra-rl,mlindra-nofault,mlindra-strip,mlindra-sec"
+      traefik.http.routers.mlindra-vision.service: "mlindra-vision"
+      traefik.http.services.mlindra-vision.loadbalancer.server.port: "8001"
+      # Desde fuera no se puede pedir un fallo simulado: la cabecera se vacía (Traefik la elimina).
+      traefik.http.middlewares.mlindra-nofault.headers.customrequestheaders.X-Demo-Fault: ""
+      traefik.http.middlewares.mlindra-strip.stripprefix.prefixes: "/vision"
+
+  agent-api:
+    networks: [default, traefik]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "root_default"
+      traefik.http.routers.mlindra.rule: "Host(`${ML_INDRA_HOST}`)"
+      traefik.http.routers.mlindra.entrypoints: "websecure"
+      traefik.http.routers.mlindra.tls.certresolver: "mytlschallenge"
+      traefik.http.routers.mlindra.middlewares: "mlindra-auth,mlindra-rl,mlindra-sec"
+      traefik.http.routers.mlindra.service: "mlindra"
+      traefik.http.services.mlindra.loadbalancer.server.port: "8000"
+      traefik.http.middlewares.mlindra-auth.basicauth.users: "${ML_INDRA_BASICAUTH}"
+      traefik.http.middlewares.mlindra-rl.ratelimit.average: "10"
+      traefik.http.middlewares.mlindra-rl.ratelimit.burst: "20"
+      traefik.http.middlewares.mlindra-sec.headers.stsSeconds: "31536000"
+      traefik.http.middlewares.mlindra-sec.headers.contentTypeNosniff: "true"
+      traefik.http.middlewares.mlindra-sec.headers.frameDeny: "true"
+      traefik.http.middlewares.mlindra-sec.headers.referrerPolicy: "no-referrer"
+
+networks:
+  traefik:
+    name: root_default
+    external: true
