@@ -112,10 +112,10 @@ def execute(conn, a: dict) -> dict:
                      " angle_mode, source, approval_id) VALUES (?,?,?,?,'PICK',?,?,'exact','manual',?)",
                      (plant, line, now_iso(), p["inspection_id"], p["obj_id"], p["angle"], a["approval_id"]))
     elif op == "promote_model":
-        if not rows(conn, "SELECT 1 FROM model_versions WHERE version=? AND stage='staging'", (p["version"],)):
-            return {"executed": False, "error": "la versión no está en staging"}
-        conn.execute("UPDATE model_versions SET stage='archived' WHERE stage='production'")
-        conn.execute("UPDATE model_versions SET stage='production' WHERE version=?", (p["version"],))
+        # El registro de versiones es global; la promoción solo cambia la versión de esta planta y línea.
+        if not rows(conn, "SELECT 1 FROM model_versions WHERE version=? AND stage IN ('staging','production')",
+                    (p["version"],)):
+            return {"executed": False, "error": "la versión no está registrada"}
         conn.execute("UPDATE line_state SET model_version=? WHERE plant_id=? AND line_id=?",
                      (p["version"], plant, line))
     elif op == "promote_sku":

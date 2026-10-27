@@ -161,3 +161,14 @@ def test_reject_has_no_effect(conn):
     out = approvals.decide(conn, aid, ctx(conn, "jefe", "plant_manager"), approve=False)
     assert out["status"] == "rejected" and rows(conn, "SELECT paused FROM line_state")[0]["paused"] == 0
     assert json.loads(rows(conn, "SELECT params_json FROM approvals")[0]["params_json"]) == {}
+
+
+def test_promote_model_scoped_to_line(conn):
+    conn.execute("INSERT INTO line_state VALUES ('P2','L1',0,0.97,'1.0.0')")
+    conn.execute("INSERT INTO model_versions VALUES ('1.0.0','production','{}'), ('1.1.0-rc1','staging','{}')")
+    conn.commit()
+    aid = approvals.create_request(ctx(conn, "ml", "ml_engineer"), "promote_model", {"version": "1.1.0-rc1"}, "x")
+    approvals.decide(conn, aid, ctx(conn, "jefe", "plant_manager"), approve=True)
+    state = {r["plant_id"]: r["model_version"] for r in rows(conn, "SELECT * FROM line_state")}
+    assert state == {"P1": "1.1.0-rc1", "P2": "1.0.0"}
+    assert rows(conn, "SELECT stage FROM model_versions WHERE version='1.0.0'")[0]["stage"] == "production"
