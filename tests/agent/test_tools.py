@@ -152,3 +152,10 @@ def test_shift_report(make_ctx):
     out = run_tool(make_ctx(), "generate_shift_report", {"shift": 3})
     assert out["total"] > 0 and any("03:00" in i for i in out["incidents"])
     assert "pending_review_cases" in out and out["line_state"]["model_version"] == "1.0.0"
+
+
+def test_sku_rejects_path_like_ids(make_ctx):
+    ids = ["../../etc/passwd"] + [f"{i:064x}" for i in range(5)]
+    out = run_tool(make_ctx(role="ml_engineer"), "register_sku_candidate",
+                   {"name": "x envase", "image_ids": ids, "angles": list(range(0, 60, 10))})
+    assert out["error"] == "invalid_args"

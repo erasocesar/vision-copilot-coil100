@@ -1,4 +1,5 @@
 """Inspección de imagen: calidad y análisis completo (el modelo del reto 2 es la herramienta)."""
+import re
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -12,8 +13,11 @@ SCORE_REASONS = ("puntuación de agarre", "confianza de clase", "ángulo inciert
 
 
 def image_path(ctx, image_id: str) -> Path:
-    p = Path(ctx.image_dir) / f"{image_id}.png"
-    if not p.exists():
+    if not re.fullmatch(r"[0-9a-f]{64}", image_id or ""):
+        raise ToolError("invalid_args", "image_id debe ser un SHA-256 en hexadecimal")
+    base = Path(ctx.image_dir).resolve()
+    p = (base / f"{image_id}.png").resolve()
+    if p.parent != base or not p.exists():
         raise ToolError("image_not_found", "no hay ninguna imagen con ese identificador; pide al usuario que la suba")
     return p
 
