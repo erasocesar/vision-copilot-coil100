@@ -105,3 +105,10 @@ def test_decide_full_symmetry_any_angle():
 def test_decide_180_symmetry_mod180():
     d = decide(_pred(symmetry=180, angle=200.0), OK_Q, TH)
     assert d.angle_mode == "mod180" and d.angle == 20.0
+
+
+def test_decode_rejects_other_formats():
+    buf = io.BytesIO()
+    Image.fromarray(np.full((32, 32, 3), 100, dtype=np.uint8)).save(buf, format="BMP")
+    with pytest.raises(InvalidImage):
+        decode_image(buf.getvalue())

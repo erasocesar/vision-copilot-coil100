@@ -21,11 +21,14 @@ def decode_image(data: bytes, max_bytes: int = MAX_BYTES) -> np.ndarray:
     if len(data) > max_bytes:
         raise InvalidImage(f"la imagen pesa más de {max_bytes // 1_000_000} MB")
     try:
-        img = Image.open(io.BytesIO(data))
+        # Solo PNG y JPEG: otros decodificadores de Pillow (EPS, por ejemplo) llaman a programas externos.
+        img = Image.open(io.BytesIO(data), formats=["PNG", "JPEG"])
+        if img.format not in ("PNG", "JPEG"):
+            raise InvalidImage("formato no admitido (solo PNG o JPEG)")
         if max(img.size) > MAX_SIDE:
             raise InvalidImage(f"la imagen mide más de {MAX_SIDE} px por lado")
         arr = np.asarray(img.convert("RGB"))
-    except (UnidentifiedImageError, OSError, ValueError) as e:
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError) as e:
         if isinstance(e, InvalidImage):
             raise
         raise InvalidImage("el archivo no es una imagen válida") from None
