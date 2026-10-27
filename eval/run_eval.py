@@ -169,7 +169,10 @@ def main():
 
     settings = Settings(image_dir=WORK / "images", db_path=WORK / "unused.db", demo_faults=True,
                         daily_usd_cap=1e9, total_usd_cap=1e9)
-    cases = yaml.safe_load(args.cases.read_text(encoding="utf-8"))
+    meta = json.loads(Path("eval/assets/assets.json").read_text(encoding="utf-8"))
+    text = args.cases.read_text(encoding="utf-8")
+    text = text.replace("SKU_DIR", f"sku_obj{meta['sku_obj']}").replace("UNKNOWN_IMG", f"unknown_obj{meta['unknown_obj']}_0.png")
+    cases = yaml.safe_load(text)
     if args.only:
         keep = set(args.only.split(","))
         cases = [c for c in cases if c["id"] in keep]
