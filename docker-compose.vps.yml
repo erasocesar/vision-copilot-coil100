@@ -1,11 +1,16 @@
 # Override para el VPS con Traefik ya instalado (red externa root_default, resolvedor mytlschallenge).
 # Uso en el VPS:
 #   docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
-# Requiere en .env: ML_INDRA_HOST y ML_INDRA_BASICAUTH (usuario:hash bcrypt de htpasswd -nbB, con cada $ duplicado).
+# Requiere en .env: ML_INDRA_HOST, ML_INDRA_BASICAUTH, DEMO_FAULTS y DEMO_ROLE_SELECTION (usuario:hash bcrypt de htpasswd -nbB, con cada $ duplicado).
 
 services:
   vision-api:
     command: uvicorn src.vision.api:app --host 0.0.0.0 --port 8001 --root-path /vision
+    environment:
+      MODEL_DIR: models/vision/v1.0.0
+      IMAGE_DIR: appdata/images
+      # En público hay que decidirlo de forma explícita (la ruta pública además anula X-Demo-Fault).
+      DEMO_FAULTS: ${DEMO_FAULTS:?define DEMO_FAULTS en .env}
     networks: [default, traefik]
     labels:
       traefik.enable: "true"
@@ -13,7 +18,7 @@ services:
       traefik.http.routers.mlindra-vision.rule: "Host(`${ML_INDRA_HOST}`) && PathPrefix(`/vision`)"
       traefik.http.routers.mlindra-vision.entrypoints: "websecure"
       traefik.http.routers.mlindra-vision.tls.certresolver: "mytlschallenge"
-      traefik.http.routers.mlindra-vision.middlewares: "mlindra-auth,mlindra-rl,mlindra-nofault,mlindra-strip,mlindra-sec"
+      traefik.http.routers.mlindra-vision.middlewares: "mlindra-rl,mlindra-auth,mlindra-nofault,mlindra-strip,mlindra-sec"
       traefik.http.routers.mlindra-vision.service: "mlindra-vision"
       traefik.http.services.mlindra-vision.loadbalancer.server.port: "8001"
       # Desde fuera no se puede pedir un fallo simulado: la cabecera se vacía (Traefik la elimina).
@@ -22,13 +27,19 @@ services:
 
   agent-api:
     networks: [default, traefik]
+    environment:
+      MODEL_DIR: models/vision/v1.0.0
+      IMAGE_DIR: appdata/images
+      DB_PATH: appdata/line.db
+      VISION_URL: http://vision-api:8001
+      DEMO_ROLE_SELECTION: ${DEMO_ROLE_SELECTION:?define DEMO_ROLE_SELECTION en .env}
     labels:
       traefik.enable: "true"
       traefik.docker.network: "root_default"
       traefik.http.routers.mlindra.rule: "Host(`${ML_INDRA_HOST}`)"
       traefik.http.routers.mlindra.entrypoints: "websecure"
       traefik.http.routers.mlindra.tls.certresolver: "mytlschallenge"
-      traefik.http.routers.mlindra.middlewares: "mlindra-auth,mlindra-rl,mlindra-sec"
+      traefik.http.routers.mlindra.middlewares: "mlindra-rl,mlindra-auth,mlindra-sec"
       traefik.http.routers.mlindra.service: "mlindra"
       traefik.http.services.mlindra.loadbalancer.server.port: "8000"
       traefik.http.middlewares.mlindra-auth.basicauth.users: "${ML_INDRA_BASICAUTH}"
