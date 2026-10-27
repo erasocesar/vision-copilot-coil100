@@ -11,6 +11,7 @@ from sklearn.model_selection import StratifiedKFold, cross_val_predict
 
 from .metrics import auroc, choose_threshold, ece, pick_outcome, within_tol
 from .model import ModelConfig, VisionModel
+from .policy import pick_features, pick_probability
 from .protocols import Split, make_split, make_validation
 
 MAX_PICK_RISK = 0.01
@@ -48,17 +49,8 @@ def predictions_frame(preds, index: pd.DataFrame, rows: np.ndarray, known_objs: 
     return df
 
 
-def pick_features(prob, ood, angle_std, sym, ood_scale: float) -> np.ndarray:
-    """Entradas de la puntuación de agarre (la misma fórmula se usa en producción)."""
-    prob, ood, angle_std, sym = (np.asarray(x, dtype=float) for x in (prob, ood, angle_std, sym))
-    return np.column_stack([prob, ood / ood_scale, np.where(sym == 0, 0.0, angle_std) / 10.0,
-                            (sym == 0).astype(float), (sym == 180).astype(float)])
-
-
 def pick_score(df: pd.DataFrame, th: dict) -> np.ndarray:
-    pm = th["pick_model"]
-    z = pick_features(df.prob, df.ood, df.angle_std, df.sym, pm["ood_scale"]) @ np.array(pm["coef"]) + pm["intercept"]
-    return 1.0 / (1.0 + np.exp(-z))
+    return pick_probability(df.prob, df.ood, df.angle_std, df.sym, th["pick_model"])
 
 
 def choose_thresholds(val: pd.DataFrame, max_risk: float = MAX_PICK_RISK) -> dict:
