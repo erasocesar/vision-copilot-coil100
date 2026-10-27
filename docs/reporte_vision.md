@@ -111,14 +111,74 @@ Estas cifras son dentro de muestra y optimistas; el despliegue real empezaría e
 
 # 8. Análisis de errores
 
-- **Confusiones de clase**: se concentran en pares de objetos casi idénticos en color y forma (envases del mismo fabricante con distinto rótulo). La clase es el problema menor: 99,9 % en A.
-- **Ángulo**: los errores grandes se concentran en objetos casi simétricos que no pasan el umbral de simetría (frascos con etiqueta pequeña) y dan saltos de unos 180°. La métrica con simetría lo corrige para los detectados; los que quedan cerca del umbral son el principal riesgo.
-- **Arco ciego (B)**: el error crece hacia el centro del arco; en los extremos el vecino más cercano está a 5-10°, en el centro a 30°. La puerta de confianza rechaza la mayoría: es el comportamiento buscado, no un fallo.
-- **Escasez (C)**: con referencias cada 30° el vecino correcto puede estar a 15°; el error mediano sube y la validación dejando una vista fuera (vecinos a 30°) no predice bien la prueba, así que el umbral deja pasar agarres erróneos.
-- **Robustez**: con desenfoque o ruido el acierto baja; el control de calidad desvía esas imágenes antes de la política (en la demo, el incidente de cámara de las 3:00).
+**Clase.** En el protocolo A solo hay 3 errores de clase en 3.600 vistas: el objeto 39 tomado por el 21 y el 44 tomado por el 21 y por el 57. La clase es el problema menor.
+
+**Ángulo.** Con simetría, el error angular mediano por objeto en A no pasa de 5° (el peor, el objeto 66). El error residual que queda en torno al 1 % son casos sueltos con mucha confianza y no un objeto sistemáticamente mal: por eso la puntuación de agarre no los separa (sección 7). La diferencia entre la métrica cruda (82,7 % en D) y la que tiene en cuenta la simetría (98,9 %) es casi toda de los 24 objetos simétricos, para los que el robot recibe `any` o `mod180`.
+
+**Arco ciego (B).** El error crece hacia el centro del arco excluido: en los extremos la referencia más cercana está a 5-10°, en el centro a 30°. La política rechaza casi todo (cobertura 9,8 %). Es el comportamiento buscado.
+
+**Escasez (C).** Con referencias cada 30° el vecino correcto puede quedar a 15°. La validación dejando una vista fuera (vecinos a 30°) no predice bien la prueba y el umbral deja pasar un 9,4 % de agarres erróneos entre los aceptados. Conclusión operativa: el alta de productos exige vistas cada 15° como máximo (`register_sku_candidate` lo comprueba).
+
+**Robustez ante condiciones fuera de dominio** (150 vistas de prueba de conocidos, modelo desplegado):
+
+| Condición | Acierto de clase | Confianza media | PICK del robot | PICK con clase errónea | Qué lo detiene |
+|---|---|---|---|---|---|
+| Original | 100 % | 0,999 | 86 % | 0 | puerta de desconocidos (14), calidad (7) |
+| Brillo −40 % | 19,8 % | 0,870 | 0 % | 0 | "no se ve un objeto aislado" |
+| Ruido gaussiano σ=15 | 1,0 % | 1,000 | 0 % | 0 | puerta de distancia ("objeto desconocido") |
+| Desenfoque σ=2 | 79,5 % | 0,891 | 0 % | 0 | "imagen desenfocada" |
+
+Con ruido el clasificador se equivoca casi siempre y con confianza 1,00: la probabilidad calibrada solo vale dentro del dominio en que se calibró. Lo que protege al robot es la combinación de control de calidad y distancia al catálogo, y por eso la política no se apoya solo en la confianza de clase. En planta, un cambio de cámara o de iluminación haría que el sistema desviase todo a revisión en lugar de agarrar mal: es el fallo seguro que se busca, y la señal para recalibrar.
 
 # 9. Model card
 
-Ver `models/vision/v1.0.0/MODEL_CARD.md` (incluido a continuación).
+Copia de `models/vision/v1.0.0/MODEL_CARD.md`.
 
-MODEL_CARD_INLINE
+
+## Uso previsto
+
+Identificar qué producto llega a la estación de alineación, estimar su ángulo de giro sobre el eje vertical (0-360°) con una medida de incertidumbre y decidir si el robot de pick & pack puede actuar (PICK con producto, ángulo y modo de ángulo) o si la pieza va a revisión manual (DIVERT con motivo). Usuarios: el lazo automático de la línea y, a través del asistente, supervisión, calidad, mantenimiento e ingeniería de ML.
+
+## Modelo
+
+| Parte | Elección |
+|---|---|
+| Clase | Regresión logística sobre histograma HSV (128) + LBP en rejilla 4×4 (160) + píxeles en gris 32×32 (1.024), estandarizados y reducidos con PCA a 128 |
+| Confianza de clase | Probabilidad de la clase ganadora recalibrada con regresión isotónica sobre predicciones fuera de fold (3 folds barajados) |
+| Ángulo | Kernel ridge (RBF) por producto sobre HOG 64×64 + píxeles, que predice seno y coseno del ángulo; la norma del vector predicho da la incertidumbre |
+| Simetría | Detectada por producto con las vistas de entrenamiento: 67 asimétricos, 16 simétricos cada 180° y 7 simétricos totales |
+| Evidencia | 5 vistas de referencia más cercanas (producto, ángulo, distancia) |
+| Política | Control de calidad → puerta de desconocidos (distancia al catálogo ≤ 11,0) → puntuación de agarre logística ≥ umbral |
+
+Selección: entre 4 clasificadores × 3 combinaciones de características y 4 métodos de ángulo, por métricas de validación de los 4 protocolos. Artefacto: `model.joblib` (6,9 MB, SHA-256 en `manifest.json`, comprobado al cargar).
+
+## Datos
+
+COIL-100 (Columbia CAVE), ZIP SHA-256 `fcb4b8b0…4afe7`. Entrenamiento: partición D, 90 productos con vistas cada 10° (3.240 imágenes). Productos excluidos, desconocidos para el modelo: 9, 10, 20, 42, 61, 69, 72, 83, 95 y 97.
+
+## Métricas
+
+Protocolo D con umbrales elegidos en validación (sin tocar la prueba): acierto de clase 99,9 %, ángulo dentro de ±10° con simetría 98,9 % (crudo 82,7 %), error angular mediano 1,0°, ECE 0,0006, AUROC de la distancia al catálogo 0,955, desconocidos aceptados 0 %, cobertura 9,5 % con 0,27 % de agarres erróneos.
+
+Resultados de los protocolos A, B y C en `docs/reporte_vision.pdf`.
+
+Punto de trabajo desplegado, recalibrado con las vistas a 5° de los 90 conocidos y los 10 desconocidos, suponiendo que un 2 % de las piezas sean productos no dados de alta: el robot actúa en el 90 % de las piezas de productos conocidos con un 0,93 % de agarres erróneos; acepta el 11 % de las vistas de desconocidos. Son cifras dentro de muestra y optimistas.
+
+Latencia: unos 12 ms por imagen en CPU, incluida la lectura y la extracción de características.
+
+## Limitaciones conocidas
+
+- Fondo negro, luz controlada, un objeto centrado y una sola elevación de cámara. Con fondo o luz distintos el control de calidad desviará casi todo: no está preparado para segmentar.
+- El error residual en productos conocidos (alrededor del 1 %) son ángulos equivocados con mucha confianza, sobre todo en objetos casi simétricos que no llegan al umbral de simetría. La puntuación de agarre no los separa.
+- Los desconocidos parecidos a un producto del catálogo pueden pasar la puerta de distancia (11 % de las vistas en calibración).
+- En un arco de 60° sin referencias el ángulo falla en más de la mitad de los casos; con referencias cada 30°, en uno de cada cuatro.
+- Simetría decidida con dos umbrales fijados mirando el catálogo.
+
+## Cuándo no usarlo
+
+- Productos con menos de una vista de referencia cada 15° o con huecos de más de 15° (usar el alta de producto con evaluación previa).
+- Cámaras, fondos, iluminación o distancias distintas de las de entrenamiento sin recalibrar el control de calidad y los umbrales.
+- Objetos que también giran en el plano de la imagen o llegan volcados.
+- Como única barrera ante productos no dados de alta: el alta de productos y el control de entrada de referencias siguen siendo necesarios.
+- Retirar la tarea manual sin un periodo en modo sombra que confirme cobertura y error en la línea real.
+
