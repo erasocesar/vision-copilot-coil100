@@ -33,6 +33,7 @@ MAX_MSGS_PER_HOUR = 30
 MAX_GLOBAL_MSGS_PER_HOUR = 150
 MAX_SESSIONS = 200
 SESSION_IDLE_S = 2 * 3600
+UNUSED_SESSION_S = 300
 MAX_UPLOAD = 5_000_000
 
 
@@ -108,8 +109,10 @@ def create_app(settings: Settings | None = None, llm=None, vision=None) -> FastA
         if body.role not in ROLES:
             raise HTTPException(422, f"rol no válido; usa uno de {', '.join(ROLES)}")
         now = time.time()
-        for k in [k for k, v in sessions.items() if now - v["last"] > SESSION_IDLE_S]:
-            sessions.pop(k)
+        for k in [k for k, v in sessions.items()
+                  if now - v["last"] > SESSION_IDLE_S or (not v["msgs"] and now - v["created"] > UNUSED_SESSION_S)
+                  or v["user_id"] == body.user_id]:
+            sessions.pop(k)  # caducadas, nunca usadas o del mismo usuario (una sesión por usuario)
         if len(sessions) >= MAX_SESSIONS:
             raise HTTPException(429, "demasiadas sesiones abiertas; inténtalo más tarde")
         sid = secrets.token_urlsafe(16)
