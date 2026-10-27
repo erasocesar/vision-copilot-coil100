@@ -32,6 +32,7 @@ PLANT, LINE = "P1", "L1"
 MAX_MSGS_PER_HOUR = 30
 MAX_GLOBAL_MSGS_PER_HOUR = 150
 MAX_SESSIONS = 200
+SESSION_IDLE_S = 2 * 3600
 MAX_UPLOAD = 5_000_000
 
 
@@ -106,12 +107,14 @@ def create_app(settings: Settings | None = None, llm=None, vision=None) -> FastA
             raise HTTPException(403, "la selección de rol solo está activa en modo demo (DEMO_ROLE_SELECTION=true)")
         if body.role not in ROLES:
             raise HTTPException(422, f"rol no válido; usa uno de {', '.join(ROLES)}")
+        now = time.time()
+        for k in [k for k, v in sessions.items() if now - v["last"] > SESSION_IDLE_S]:
+            sessions.pop(k)
         if len(sessions) >= MAX_SESSIONS:
-            oldest = min(sessions, key=lambda k: sessions[k]["created"])
-            sessions.pop(oldest)
+            raise HTTPException(429, "demasiadas sesiones abiertas; inténtalo más tarde")
         sid = secrets.token_urlsafe(16)
         sessions[sid] = {"session_id": sid, "user_id": body.user_id, "role": body.role,
-                         "msgs": deque(), "seen_decisions": set(), "created": time.time()}
+                         "msgs": deque(), "seen_decisions": set(), "created": time.time(), "last": time.time()}
         return {"session_id": sid, "plant_id": PLANT, "line_id": LINE, "role": body.role}
 
     @app.post("/api/images")
@@ -151,11 +154,12 @@ def create_app(settings: Settings | None = None, llm=None, vision=None) -> FastA
             global_msgs.popleft()
         if len(sess["msgs"]) >= MAX_MSGS_PER_HOUR or len(global_msgs) >= MAX_GLOBAL_MSGS_PER_HOUR:
             raise HTTPException(429, f"máximo {MAX_MSGS_PER_HOUR} mensajes por hora y sesión en la demo")
-        sess["msgs"].append(now)
-        global_msgs.append(now)
         bad = [i for i in body.image_ids if not re.fullmatch(r"[0-9a-f]{64}", i)]
         if bad:
             raise HTTPException(422, "image_ids no válidos")
+        sess["msgs"].append(now)
+        sess["last"] = now
+        global_msgs.append(now)
         msg = approval_notes(sess) + body.message
         if body.image_ids:
             msg += "\n[imágenes adjuntas: " + ", ".join(body.image_ids) + "]"
