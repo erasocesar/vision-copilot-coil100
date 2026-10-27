@@ -1,0 +1,13 @@
+.venv
+.git
+data/raw
+data/cache
+mlruns
+eval
+notebooks
+docs
+appdata
+.superpowers
+**/__pycache__
+.env
+*.zip

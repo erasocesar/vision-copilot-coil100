@@ -1,0 +1,20 @@
+# Dependencias de ejecución (servicios Docker). Versiones fijadas desde requirements-lock.txt.
+numpy==2.5.4
+pandas==3.1.0
+scikit-learn==1.9.1
+scikit-image==0.26.0
+opencv-python-headless==5.0.0.93
+pillow==13.0.0
+joblib==1.6.0
+fastapi==0.162.0
+uvicorn==0.54.0
+python-multipart==0.0.32
+pydantic==2.14.1
+pydantic-settings==2.16.1
+httpx==0.28.1
+langgraph==1.2.18
+langgraph-checkpoint-sqlite==3.1.2
+langchain-core==1.7.0
+langchain-openai==1.7.3
+openai==3.39.0
+PyYAML==6.0.3

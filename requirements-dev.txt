@@ -1,0 +1,13 @@
+# Experimentación, notebook, pruebas y evaluación (además de requirements.txt).
+-r requirements.txt
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.14.1+cpu
+torchvision==0.29.1+cpu
+mlflow==3.17.2
+matplotlib==3.11.2
+jupyter==1.1.1
+nbconvert==7.17.2
+ipykernel==7.4.0
+openpyxl==3.1.5
+pytest==9.1.1
+pip-audit

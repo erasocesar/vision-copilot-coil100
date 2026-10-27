@@ -118,11 +118,26 @@ def stage_export(index, images, feats, out=Path("models/vision/v1.0.0")):
     model.paths = np.array([Path(p).name for p in model.paths], dtype=object)
     model.save(out)
 
+    from .experiments import accepted_mask, choose_thresholds
     from .quality import quality_refs
-    split_rows = np.flatnonzero(index.obj_id.isin(set(model.obj_ids)).to_numpy())
-    thresholds = {**res["thresholds"], "quality": asdict(quality_refs(images[split_rows]))}
-    (out / "thresholds.json").write_text(json.dumps(thresholds, indent=2), encoding="utf-8")
-    (out / "metrics.json").write_text(json.dumps(res["metrics"], indent=2), encoding="utf-8")
+
+    # Calibración de despliegue: el punto de trabajo del artefacto se recalibra con las vistas
+    # intermedias (5°) y los 10 desconocidos, que se parecen a la operación real. Las métricas del
+    # protocolo D (metrics.json, "protocol_D") se calcularon antes con umbrales de validación.
+    deploy_th = choose_thresholds(res["test"], 0.01)
+    calib = res["test"]
+    acc = accepted_mask(calib, deploy_th)
+    good = (calib.cls_ok & (calib.err_sym <= 10)).to_numpy()
+    deploy_info = {"calibration_set": "vistas a 5° de los 90 conocidos + 10 desconocidos (720 vistas)",
+                   "coverage_in_sample": float(acc.mean()),
+                   "wrong_pick_rate_in_sample": float((~good[acc]).mean()) if acc.any() else 0.0,
+                   "unknown_accept_rate_in_sample": float(acc[~calib.known.to_numpy()].mean())}
+    train_rows = np.flatnonzero((index.obj_id.isin(set(model.obj_ids)) & (index.angle % 10 == 0)).to_numpy())
+    thresholds = {**deploy_th, "quality": asdict(quality_refs(images[train_rows])),
+                  "validation_thresholds": res["thresholds"], "deploy_calibration": deploy_info}
+    (out / "thresholds.json").write_text(json.dumps(thresholds, indent=2, ensure_ascii=False), encoding="utf-8")
+    (out / "metrics.json").write_text(json.dumps({"protocol_D": res["metrics"], "deploy_calibration": deploy_info},
+                                                 indent=2), encoding="utf-8")
     manifest = {
         "version": "1.0.0",
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),

@@ -1,0 +1,66 @@
+# Despliegue de un comando:  docker compose up --build
+# Demo en http://localhost:8000 (chat) y http://localhost:8001/docs (API de visión).
+name: vision-copilot
+
+x-app: &app
+  build: .
+  image: vision-copilot:1.0.0
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    MODEL_DIR: models/vision/v1.0.0
+    IMAGE_DIR: appdata/images
+    DB_PATH: appdata/line.db
+    VISION_URL: http://vision-api:8001
+  volumes:
+    - appdata:/app/appdata
+    - rawdata:/app/data/raw
+  restart: unless-stopped
+
+services:
+  line-sim:
+    <<: *app
+    restart: "no"
+    command: >
+      sh -c "python data/download.py --zip data/raw/coil-100.zip --out data/raw &&
+             python -m src.sim.line_sim --db appdata/line.db --model models/vision/v1.0.0"
+
+  vision-api:
+    <<: *app
+    command: uvicorn src.vision.api:app --host 0.0.0.0 --port 8001
+    environment:
+      MODEL_DIR: models/vision/v1.0.0
+      IMAGE_DIR: appdata/images
+      DEMO_FAULTS: ${DEMO_FAULTS:-true}
+    ports:
+      - "127.0.0.1:8001:8001"
+    mem_limit: 512m
+    cpus: 0.75
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      retries: 6
+
+  agent-api:
+    <<: *app
+    command: uvicorn src.agent.api:app --host 0.0.0.0 --port 8000
+    environment:
+      MODEL_DIR: models/vision/v1.0.0
+      IMAGE_DIR: appdata/images
+      DB_PATH: appdata/line.db
+      VISION_URL: http://vision-api:8001
+      DEMO_ROLE_SELECTION: ${DEMO_ROLE_SELECTION:-true}
+    ports:
+      - "127.0.0.1:8000:8000"
+    mem_limit: 512m
+    cpus: 0.75
+    depends_on:
+      line-sim:
+        condition: service_completed_successfully
+      vision-api:
+        condition: service_healthy
+
+volumes:
+  appdata:
+  rawdata:
