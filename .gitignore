@@ -1,0 +1,11 @@
+.env
+*.zip
+__pycache__/
+*.pyc
+.venv/
+data/raw/
+data/cache/
+appdata/
+.superpowers/
+.pytest_cache/
+.ipynb_checkpoints/
