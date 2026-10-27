@@ -20,7 +20,7 @@ Además: arquitectura y diagramas de secuencia en [`docs/arquitectura.md`](docs/
 
 ## Ejecutar en local con un comando
 
-Requisitos: Docker con Compose v2. Opcional: una clave de OpenAI para el asistente (sin ella, el servicio de visión funciona y el chat responde que el asistente no está disponible).
+Requisitos: Docker con Compose 2.24 o posterior. Opcional: una clave de OpenAI para el asistente (sin ella, el servicio de visión funciona y el chat responde que el asistente no está disponible).
 
 ```bash
 cp .env.example .env          # y poner OPENAI_API_KEY si se quiere el asistente
@@ -51,7 +51,7 @@ tests/         pruebas automáticas
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements-dev.txt   # en Linux: .venv/bin/pip
-python data/download.py
+.venv/Scripts/python data/download.py      # en Linux: .venv/bin/python
 python -m src.vision.sweep --stage grid      # unos 60 min en CPU; registra en mlruns/mlflow.db
 python -m src.vision.sweep --stage angle
 python -m src.vision.sweep --stage export    # models/vision/v1.0.0
@@ -71,7 +71,7 @@ Visión (ML clásico: regresión logística sobre HSV + LBP + píxeles para la c
 | C una vista cada 30° | 98,8 % | 76,3 % | 20,2 % | 9,41 % |
 | D 10 objetos desconocidos | 99,9 % | 98,9 % | 16,2 % (0 % de desconocidos aceptados, AUROC 0,955) | 0,00 % |
 
-Frente a la referencia moderna (ResNet-50 preentrenada): gana algo de acierto de clase con pocas vistas, pero el ángulo cae al 81 % en A y tarda unas 10 veces más en CPU, así que no compensa. Punto de trabajo desplegado (recalibrado y documentado en el model card): el robot actúa en el 90 % de las piezas de productos conocidos con un 0,93 % de agarres erróneos. Con imágenes con ruido, poca luz o desenfoque el clasificador falla con confianza alta, pero la política las desvía todas a revisión: 0 agarres con producto equivocado.
+Frente a la referencia moderna (ResNet-50 preentrenada): gana algo de acierto de clase con pocas vistas, pero el ángulo cae al 81 % en A y tarda unas 10 veces más en CPU, así que no compensa. Punto de trabajo desplegado (recalibrado y documentado en el model card): el robot actúa en el 90 % de las piezas de productos conocidos con un 0,93 % de agarres erróneos, medido en el mismo conjunto que se usó para recalibrar (cifra dentro de muestra, optimista). Con imágenes con ruido, poca luz o desenfoque el clasificador falla con confianza alta, pero la política las desvía todas a revisión: 0 agarres con producto equivocado.
 
 Agente (41 casos × 3 repeticiones, gpt-4.1-mini): 91,1 % de éxito de la tarea (82,9 % antes de una iteración de mejoras), 90,2 % de selección de tools, 95,9 % de argumentos correctos, unos 5.200 tokens de entrada y 0,001 USD por consulta. Ninguna ejecución cambió la línea sin aprobación humana.
 

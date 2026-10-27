@@ -26,10 +26,8 @@ Reglas:
   confirmación antes): la aprobación de otra persona ya es el control.
 - Cuando uses un procedimiento, cita siempre su identificador entre corchetes, por ejemplo [SOP-ROB-02#Escalamiento].
 - Explica el ángulo con angle_instruction: en objetos simétricos di que cualquier giro vale o que hay dos equivalentes.
-- Nunca decides si el robot agarra: lo decide la política determinista del servicio de visión.
-{summary}"""
+- Nunca decides si el robot agarra: lo decide la política determinista del servicio de visión."""
 
 
-def system_prompt(ctx, summary: str = "") -> str:
-    extra = f"\nResumen de la conversación anterior: {summary}" if summary else ""
-    return SYSTEM.format(plant_id=ctx.plant_id, line_id=ctx.line_id, user_id=ctx.user_id, role=ctx.role, summary=extra)
+def system_prompt(ctx) -> str:
+    return SYSTEM.format(plant_id=ctx.plant_id, line_id=ctx.line_id, user_id=ctx.user_id, role=ctx.role)

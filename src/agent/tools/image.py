@@ -65,7 +65,7 @@ def analyze_image(ctx, a: AnalyzeIn) -> dict:
                            [x for x in d["reasons"] if x.startswith(SCORE_REASONS)] or
                            [f"puntuación de agarre {d['pick_score']:.2f} < umbral de línea {th:.2f}"])
     return {
-        "image_id": r["image_id"], "obj_id": p["obj_id"], "class_prob": round(p["class_prob"], 3),
+        "image_id": a.image_id, "obj_id": p["obj_id"], "class_prob": round(p["class_prob"], 3),
         "angle": d["angle"], "angle_std": round(p["angle_std"], 1), "angle_mode": d["angle_mode"],
         "symmetry": p["symmetry"], "angle_instruction": {
             "any": "objeto simétrico: cualquier giro vale, el robot no necesita compensar el ángulo",

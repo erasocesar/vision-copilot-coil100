@@ -75,7 +75,10 @@ def build_graph(ctx, llm, checkpointer=None, settings=None):
         # El tope se comprueba antes de cada llamada, no solo al empezar el turno.
         if not budget_ok(ctx.conn, settings):
             return {"stop_reason": "budget"}
-        msgs =[SystemMessage(system_prompt(ctx, state.get("summary", "")))] + state["messages"]
+        # El resumen va como mensaje propio, no dentro del prompt de sistema: es texto de usuarios.
+        summary = state.get("summary", "")
+        prev = [AIMessage(content=f"Resumen de lo hablado antes en esta sesión: {summary}")] if summary else []
+        msgs = [SystemMessage(system_prompt(ctx))] + prev + state["messages"]
         try:
             resp = llm.invoke(msgs)
         except Exception as e:  # noqa: BLE001 - cualquier fallo del proveedor se trata igual
@@ -100,6 +103,9 @@ def build_graph(ctx, llm, checkpointer=None, settings=None):
                 stop, result = "timeout", {"error": "timeout", "detail": "tiempo máximo del turno"}
             else:
                 g = check_call(ctx, name, args, calls)
+                # Toda llamada intentada cuenta para los límites, también las bloqueadas:
+                # si no, un LLM que repite una llamada prohibida no se corta nunca.
+                calls.append((name, args_hash(args)))
                 if not g.ok:
                     result = g.error
                     audit(ctx, name, args, "blocked", g.error["error"])
@@ -107,7 +113,6 @@ def build_graph(ctx, llm, checkpointer=None, settings=None):
                         stop = g.error["error"]
                 else:
                     result = run_tool(ctx, name, args)
-                    calls.append((name, args_hash(args)))
                     if result.get("status") == "pending_approval":
                         pending = result["approval_id"]
             used.append({"tool": name, "args": args, "status": result.get("error", "ok")})
@@ -150,10 +155,26 @@ def run_turn(ctx, llm, message: str, checkpointer=None, settings=None) -> dict:
               "recursion_limit": RECURSION_LIMIT}
     try:
         state = graph.invoke({"messages": [HumanMessage(content=message)]}, config=config)
-    except Exception as e:  # GraphRecursionError u otro fallo del grafo: respuesta fija, hilo intacto
+    except Exception as e:  # GraphRecursionError u otro fallo del grafo: respuesta fija y hilo reparado
         audit(ctx, "graph", {}, "error", type(e).__name__)
+        _close_open_tool_calls(graph, config)
         return {"reply": STOP_MESSAGES["max_tool_calls"], "tools_used": [], "stop_reason": "recursion",
                 "pending_approval_id": None}
     last = state["messages"][-1]
     return {"reply": last.content if isinstance(last, AIMessage) else "", "tools_used": state.get("tools_used", []),
             "stop_reason": state.get("stop_reason"), "pending_approval_id": state.get("pending_approval_id")}
+
+
+def _close_open_tool_calls(graph, config) -> None:
+    """Responde las tool_calls que quedaron sin ToolMessage: OpenAI rechaza un hilo con llamadas huérfanas."""
+    try:
+        msgs = graph.get_state(config).values.get("messages", [])
+    except Exception:  # noqa: BLE001 - sin checkpointer no hay hilo que reparar
+        return
+    answered = {m.tool_call_id for m in msgs if isinstance(m, ToolMessage)}
+    missing = [ToolMessage(content=json.dumps({"error": "aborted", "detail": "turno interrumpido"}),
+                           tool_call_id=tc["id"], name=tc["name"])
+               for m in msgs if isinstance(m, AIMessage) for tc in (m.tool_calls or []) if tc["id"] not in answered]
+    if missing:
+        graph.update_state(config, {"messages": missing + [AIMessage(content=STOP_MESSAGES["max_tool_calls"])]},
+                           as_node="finish")

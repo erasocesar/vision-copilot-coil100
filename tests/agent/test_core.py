@@ -144,6 +144,8 @@ def test_double_approval_no_double_effect(conn):
 
 
 def test_manual_angle_written_by_human(conn):
+    conn.execute("INSERT INTO inspections (id, plant_id, line_id, ts, shift, image_id, action, model_version)"
+                 " VALUES (7,'P1','L1','2026-10-26T10:00:00',1,'x','DIVERT','1.0.0')")
     aid = approvals.create_request(ctx(conn, "ana", "supervisor"), "send_manual_angle",
                                    {"inspection_id": 7, "obj_id": 3, "angle": 45}, "caso dudoso")
     approvals.decide(conn, aid, ctx(conn, "jefe", "plant_manager"), approve=True, manual_angle=50.0)
@@ -153,7 +155,17 @@ def test_manual_angle_written_by_human(conn):
 
 def test_threshold_out_of_range(conn):
     with pytest.raises(ValueError):
-        approvals.create_request(ctx(conn, role="quality"), "set_threshold", {"min_pick_score": 0.2}, "x")
+        approvals.create_request(ctx(conn, role="quality"), "set_threshold", {"min_pick_score": 1.5}, "x")
+    assert approvals.create_request(ctx(conn, role="quality"), "set_threshold", {"min_pick_score": 0.009}, "volver al desplegado")
+
+
+def test_manual_angle_requires_inspection_on_this_line(conn):
+    conn.execute("INSERT INTO inspections (id, plant_id, line_id, ts, shift, image_id, action, model_version)"
+                 " VALUES (8,'P2','L1','2026-10-26T10:00:00',1,'x','DIVERT','1.0.0')")
+    with pytest.raises(ValueError):
+        approvals.create_request(ctx(conn), "send_manual_angle", {"inspection_id": 8, "obj_id": 3, "angle": 45}, "x")
+    with pytest.raises(ValueError):
+        approvals.create_request(ctx(conn), "send_manual_angle", {"inspection_id": 999, "obj_id": 3, "angle": 45}, "x")
 
 
 def test_reject_has_no_effect(conn):

@@ -10,7 +10,7 @@ from .audit import audit
 
 
 class SetThreshold(BaseModel):
-    min_pick_score: float = Field(ge=0.5, le=0.999)
+    min_pick_score: float = Field(ge=0.0, le=0.999)
 
 
 class NoParams(BaseModel):
@@ -54,6 +54,10 @@ def create_request(ctx, op: str, params: dict, justification: str) -> str:
         clean = model(**(params or {})).model_dump()
     except ValidationError as e:
         raise ValueError(f"parámetros inválidos para {op}: {e.errors()[0]['msg']}") from None
+    if op == "send_manual_angle" and not rows(
+            ctx.conn, "SELECT 1 FROM inspections WHERE id=? AND plant_id=? AND line_id=?",
+            (clean["inspection_id"], ctx.plant_id, ctx.line_id)):
+        raise ValueError("esa inspección no existe en esta planta y línea")
     aid = uuid.uuid4().hex[:12]
     ctx.conn.execute(
         "INSERT INTO approvals (approval_id, plant_id, line_id, op, params_json, justification, requested_by,"
@@ -89,8 +93,7 @@ def decide(conn, approval_id: str, approver, approve: bool, manual_angle: float 
     cur = conn.execute("UPDATE approvals SET status=?, approved_by=?, approved_role=?, ts_decided=?"
                        " WHERE approval_id=? AND status='pending'",
                        (status, approver.user_id, approver.role, now_iso(), approval_id))
-    if cur.rowcount != 1:
-        conn.rollback()
+    if cur.rowcount != 1:  # otra decisión ganó; este UPDATE no cambió nada
         raise ValueError("la aprobación ya fue decidida")
     result = execute(conn, {**a, "params": params}) if approve else {"executed": False}
     conn.execute("UPDATE approvals SET result_json=? WHERE approval_id=?", (json.dumps(result), approval_id))
@@ -119,9 +122,10 @@ def execute(conn, a: dict) -> dict:
         conn.execute("UPDATE line_state SET model_version=? WHERE plant_id=? AND line_id=?",
                      (p["version"], plant, line))
     elif op == "promote_sku":
-        r = rows(conn, "SELECT status FROM sku_candidates WHERE candidate_id=? AND plant_id=?",
-                 (p["candidate_id"], plant))
+        r = rows(conn, "SELECT status FROM sku_candidates WHERE candidate_id=? AND plant_id=? AND line_id=?",
+                 (p["candidate_id"], plant, line))
         if not r or r[0]["status"] != "evaluated_ok":
             return {"executed": False, "error": "el candidato no ha pasado la evaluación"}
-        conn.execute("UPDATE sku_candidates SET status='production' WHERE candidate_id=?", (p["candidate_id"],))
+        conn.execute("UPDATE sku_candidates SET status='production' WHERE candidate_id=? AND plant_id=? AND line_id=?",
+                     (p["candidate_id"], plant, line))
     return {"executed": True, "op": op, "params": p}

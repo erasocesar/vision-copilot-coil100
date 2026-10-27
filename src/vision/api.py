@@ -163,7 +163,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise InvalidImage("angles debe ser una lista de enteros separada por comas") from None
         if not 6 <= len(files) <= 72 or len(files) != len(angle_list):
             raise InvalidImage("se necesitan entre 6 y 72 vistas, una por ángulo")
-        imgs = np.stack([decode_image(await _read_limited(f)) for f in files])
+        imgs, total = [], 0
+        for f in files:
+            raw = await _read_limited(f)
+            total += len(raw)
+            if total > 40_000_000:
+                raise InvalidImage("la evaluación admite como máximo 40 MB en total")
+            imgs.append(decode_image(raw))
+        imgs = np.stack(imgs)
         return evaluate_views(model, imgs, angle_list, thresholds.max_ood)
 
     return app

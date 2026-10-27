@@ -17,6 +17,7 @@ def test_catalog_has_13_tools_read_and_write():
 def test_analyze_image(make_ctx):
     out = run_tool(make_ctx(), "analyze_image", {"image_id": IMG_ID, "top_k": 2})
     assert out["obj_id"] == 7 and out["action"] == "PICK" and len(out["evidence_topk"]) == 2
+    assert out["image_id"] == IMG_ID
     assert "path" not in out["evidence_topk"][0]
 
 
@@ -144,7 +145,7 @@ def test_risk_operation_never_executes(make_ctx, db):
 
 def test_risk_operation_bad_params(make_ctx):
     out = run_tool(make_ctx(role="quality"), "request_risk_operation",
-                   {"op": "set_threshold", "params": {"min_pick_score": 0.1}, "justification": "bajarlo mucho"})
+                   {"op": "set_threshold", "params": {"min_pick_score": 1.2}, "justification": "fuera de rango"})
     assert out["error"] == "invalid_request"
 
 

@@ -109,3 +109,32 @@ def test_budget_checked_before_each_llm_call(make_ctx, db):
     llm = ScriptedLLM([call("get_camera_health", {}), AIMessage(content="no debería llegar")])
     out = run_turn(make_ctx(), llm, "hola", InMemorySaver(), settings=s)
     assert llm.calls == 1 and out["reply"] == STOP_MESSAGES["budget"]
+
+
+def test_repeated_blocked_call_is_cut_and_thread_stays_valid(make_ctx):
+    """Una llamada prohibida repetida debe cortarse como bucle y el hilo no puede quedar con tool_calls huérfanas."""
+    saver = InMemorySaver()
+    args = {"case_id": "x", "obj_id": 1, "angle": 1}
+    llm = ScriptedLLM([call("submit_review_label", args, i) for i in range(15)])
+    out = run_turn(make_ctx(role="maintenance"), llm, "etiqueta", saver)
+    assert out["stop_reason"] == "loop_detected" and llm.calls <= 3
+    from src.agent.graph import build_graph
+    st = build_graph(make_ctx(), ScriptedLLM([]), saver).get_state({"configurable": {"thread_id": "P1:L1:s1"}}).values
+    answered = {m.tool_call_id for m in st["messages"] if m.type == "tool"}
+    asked = {tc["id"] for m in st["messages"] if m.type == "ai" for tc in (m.tool_calls or [])}
+    assert asked <= answered
+
+
+def test_recursion_limit_repairs_thread(make_ctx, monkeypatch):
+    import src.agent.graph as G
+    monkeypatch.setattr(G, "RECURSION_LIMIT", 4)
+    saver = InMemorySaver()
+    llm = ScriptedLLM([call("get_camera_health", {"start_hour": i}, i) for i in range(10)])
+    out = run_turn(make_ctx(), llm, "x", saver)
+    assert out["stop_reason"] == "recursion"
+    st = G.build_graph(make_ctx(), ScriptedLLM([]), saver).get_state({"configurable": {"thread_id": "P1:L1:s1"}}).values
+    answered = {m.tool_call_id for m in st["messages"] if m.type == "tool"}
+    asked = {tc["id"] for m in st["messages"] if m.type == "ai" for tc in (m.tool_calls or [])}
+    assert asked <= answered
+    out2 = run_turn(make_ctx(), ScriptedLLM([AIMessage(content="sigo aquí")]), "¿sigues?", saver)
+    assert out2["reply"] == "sigo aquí"
