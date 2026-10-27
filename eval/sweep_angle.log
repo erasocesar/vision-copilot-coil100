@@ -1,0 +1,14 @@
+2026/10/27 10:46:11 INFO mlflow.agent.hint: Load the `instrumenting-with-mlflow-tracing` skill at F:\Proyectos\Cesar\Buscar Trabajo con claude\Prueba Tecnica Indra Group\vision-copilot-coil100\.venv\Lib\site-packages\mlflow\assistant\skills\instrumenting-with-mlflow-tracing\SKILL.md before writing any tracing code; it ships with this MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.
+Mejor configuración clásica (media de validación en A-D): logreg-color+lbp+pixels 0.0607
+[A] angle/knn-k1: val_cov=0.084 val_wrong=0.0066 test_acc=0.999 test_cov=0.096 test_wrong=0.0000
+[A] angle/knn-k5: val_cov=0.131 val_wrong=0.0128 test_acc=0.999 test_cov=0.220 test_wrong=0.0000
+[A] angle/kernel_ridge-k3: val_cov=0.249 val_wrong=0.0089 test_acc=0.999 test_cov=0.356 test_wrong=0.0016
+[B] angle/knn-k1: val_cov=0.102 val_wrong=0.0081 test_acc=0.960 test_cov=0.104 test_wrong=0.0080
+[B] angle/knn-k5: val_cov=0.080 val_wrong=0.0000 test_acc=0.960 test_cov=0.080 test_wrong=0.0000
+[B] angle/kernel_ridge-k3: val_cov=0.122 val_wrong=0.0136 test_acc=0.960 test_cov=0.133 test_wrong=0.0000
+[C] angle/knn-k1: val_cov=0.235 val_wrong=0.0106 test_acc=0.988 test_cov=0.224 test_wrong=0.1720
+[C] angle/knn-k5: val_cov=0.083 val_wrong=0.0100 test_acc=0.988 test_cov=0.084 test_wrong=0.0040
+[C] angle/kernel_ridge-k3: val_cov=0.203 val_wrong=0.0123 test_acc=0.988 test_cov=0.200 test_wrong=0.0416
+[D] angle/knn-k1: val_cov=0.070 val_wrong=0.0000 test_acc=0.999 test_cov=0.106 test_wrong=0.1429
+[D] angle/knn-k5: val_cov=0.088 val_wrong=0.0063 test_acc=0.999 test_cov=0.201 test_wrong=0.0891
+[D] angle/kernel_ridge-k3: val_cov=0.071 val_wrong=0.0000 test_acc=0.999 test_cov=0.095 test_wrong=0.0027

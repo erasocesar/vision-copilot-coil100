@@ -54,7 +54,8 @@ def pick_score(df: pd.DataFrame, th: dict) -> np.ndarray:
     return pick_probability(df.prob, df.ood, df.angle_std, df.sym, th["pick_model"])
 
 
-def choose_thresholds(val: pd.DataFrame, max_risk: float = MAX_PICK_RISK) -> dict:
+def choose_thresholds(val: pd.DataFrame, max_risk: float = MAX_PICK_RISK, unknown_prevalence: float | None = None,
+                      ood_quantile: float = OOD_KNOWN_QUANTILE) -> dict:
     """Política elegida solo con validación.
 
     1) Puerta de desconocidos: distancia al catálogo por encima del percentil 99 de los conocidos.
@@ -64,7 +65,7 @@ def choose_thresholds(val: pd.DataFrame, max_risk: float = MAX_PICK_RISK) -> dic
        fuera de fold para no evaluar la regresión con los mismos datos que la ajustan.
     """
     known = val[val.known]
-    max_ood = float(np.quantile(known.ood, OOD_KNOWN_QUANTILE))
+    max_ood = float(np.quantile(known.ood, ood_quantile))
     good = (val.cls_ok & (val.err_sym <= 10)).to_numpy()
     X = pick_features(val.prob, val.ood, val.angle_std, val.sym, max_ood)
     lr = LogisticRegression(max_iter=1000)
@@ -76,11 +77,19 @@ def choose_thresholds(val: pd.DataFrame, max_risk: float = MAX_PICK_RISK) -> dic
         score_oof = cross_val_predict(lr, X, good, cv=folds, method="predict_proba")[:, 1]
         lr.fit(X, good)
     gate = (val.ood <= max_ood).to_numpy()
-    t = choose_threshold(score_oof[gate], good[gate], max_risk) if gate.any() else np.inf
+    weights = None
+    if unknown_prevalence is not None and (~val.known).any():
+        # Repondera los desconocidos para que pesen lo que se espera en planta.
+        n_k, n_u = val.known.sum(), (~val.known).sum()
+        w_u = (unknown_prevalence / (1 - unknown_prevalence)) * n_k / n_u
+        weights = np.where(val.known.to_numpy(), 1.0, w_u)[gate]
+    t = choose_threshold(score_oof[gate], good[gate], max_risk, weights) if gate.any() else np.inf
     return {
         "max_ood": max_ood,
         "min_pick_score": float(t),
         "max_risk": max_risk,
+        "unknown_prevalence": unknown_prevalence,
+        "ood_quantile": ood_quantile,
         "pick_model": {"coef": (lr.coef_[0].tolist() if lr else [0.0] * X.shape[1]),
                        "intercept": float(lr.intercept_[0]) if lr else float(np.log(good.mean() + 1e-9)),
                        "ood_scale": max_ood,

@@ -1,0 +1,67 @@
+{
+  "max_ood": 11.016357803344725,
+  "min_pick_score": 0.009104496071523248,
+  "max_risk": 0.015,
+  "unknown_prevalence": 0.02,
+  "ood_quantile": 0.9,
+  "pick_model": {
+    "coef": [
+      8.306161955414405,
+      -1.9123438832345365,
+      -0.03487134804845711,
+      -2.0678667934964783,
+      0.5975610380719667
+    ],
+    "intercept": -3.7276861999657394,
+    "ood_scale": 11.016357803344725,
+    "features": [
+      "class_prob",
+      "ood/ood_scale",
+      "angle_std/10 (0 si simétrico)",
+      "simétrico total",
+      "simétrico 180"
+    ]
+  },
+  "quality": {
+    "blur_min": 54.351669571995735,
+    "brightness_min": 38.90265688507228,
+    "brightness_max": 113.06638974413704,
+    "fg_ratio_min": 0.9402435302734375
+  },
+  "validation_thresholds": {
+    "max_ood": 39.741879692077596,
+    "min_pick_score": 0.975827825507293,
+    "max_risk": 0.01,
+    "unknown_prevalence": null,
+    "ood_quantile": 0.99,
+    "pick_model": {
+      "coef": [
+        5.29715685548925,
+        -1.0865279015549378,
+        -0.14650862748776178,
+        -0.23214607044300764,
+        -0.7753922471719241
+      ],
+      "intercept": -1.1760408762084518,
+      "ood_scale": 39.741879692077596,
+      "features": [
+        "class_prob",
+        "ood/ood_scale",
+        "angle_std/10 (0 si simétrico)",
+        "simétrico total",
+        "simétrico 180"
+      ]
+    }
+  },
+  "deploy_calibration": {
+    "calibration_set": "vistas a 5° de los 90 conocidos (3.240) + 10 desconocidos completos (720)",
+    "unknown_prevalence_assumed": 0.02,
+    "max_risk": 0.015,
+    "ood_quantile": 0.9,
+    "coverage_known": 0.9,
+    "wrong_pick_rate_known": 0.009259259259259259,
+    "coverage_in_sample": 0.7565656565656566,
+    "wrong_pick_rate_in_sample": 0.03571428571428571,
+    "unknown_accept_rate_in_sample": 0.1111111111111111
+  }
+}

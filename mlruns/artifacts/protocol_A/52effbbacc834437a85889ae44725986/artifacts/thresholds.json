@@ -1,0 +1,23 @@
+{
+  "max_ood": 42.55882286071777,
+  "min_pick_score": 0.8983715088166508,
+  "max_risk": 0.01,
+  "pick_model": {
+    "coef": [
+      1.9207456212941678,
+      -2.493928279627925,
+      -2.409281584912353e-07,
+      0.3113980872304673,
+      0.3071888845907802
+    ],
+    "intercept": 0.24416038983989305,
+    "ood_scale": 42.55882286071777,
+    "features": [
+      "class_prob",
+      "ood/ood_scale",
+      "angle_std/10 (0 si sim\u00e9trico)",
+      "sim\u00e9trico total",
+      "sim\u00e9trico 180"
+    ]
+  }
+}

@@ -28,14 +28,19 @@ def risk_coverage(conf, correct) -> tuple[np.ndarray, np.ndarray]:
     return n / len(order), np.cumsum(errors) / n
 
 
-def choose_threshold(conf, correct, max_risk: float = 0.01) -> float:
-    """Menor umbral de confianza con riesgo entre aceptados <= max_risk (máxima cobertura)."""
+def choose_threshold(conf, correct, max_risk: float = 0.01, weights=None) -> float:
+    """Menor umbral de confianza con riesgo entre aceptados <= max_risk (máxima cobertura).
+
+    `weights` permite reponderar muestras (p. ej. ajustar la proporción de objetos desconocidos
+    a la esperada en planta en lugar de la del conjunto de calibración).
+    """
     conf = np.asarray(conf, dtype=float)
     correct = np.asarray(correct, dtype=float)
+    w = np.ones_like(conf) if weights is None else np.asarray(weights, dtype=float)
     best = np.inf
     for t in np.unique(conf)[::-1]:
         acc = conf >= t
-        if (1 - correct[acc]).mean() <= max_risk:
+        if (w[acc] * (1 - correct[acc])).sum() / w[acc].sum() <= max_risk:
             best = float(t)
     return best
 

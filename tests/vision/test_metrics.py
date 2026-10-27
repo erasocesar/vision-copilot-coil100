@@ -48,3 +48,10 @@ def test_pick_outcome():
     assert out["wrong_pick_rate"] == pytest.approx(2 / 3)  # clase errónea y ángulo de 20°
     assert out["class_acc"] == 0.75
     assert out["angle_within_tol"] == pytest.approx(2 / 3)  # entre los de clase correcta
+
+
+def test_choose_threshold_weighted():
+    conf = np.array([0.9, 0.8, 0.7, 0.6])
+    correct = np.array([1, 1, 0, 1])
+    # El error a 0,7 pesa poco: con peso 0,01 el riesgo ponderado a 0,6 es 0,01/3,01 < 1 %
+    assert choose_threshold(conf, correct, 0.01, weights=np.array([1, 1, 0.01, 1])) == 0.6

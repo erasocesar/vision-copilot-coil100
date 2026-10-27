@@ -1,0 +1,40 @@
+{
+  "protocol_D": {
+    "val_class_acc": 0.9854166666666667,
+    "val_angle_within_tol": 0.740662438336857,
+    "val_angle_within_tol_sym": 0.9175475687103594,
+    "val_angle_median_err_sym": 3.6628166359969825,
+    "val_ece": 0.005606459495094024,
+    "val_coverage": 0.07055555555555555,
+    "val_wrong_pick_rate": 0.0,
+    "val_unknown_accept_rate": 0.0,
+    "val_auroc_ood": 0.9458024691358025,
+    "val_auroc_prob": 0.9230189043209877,
+    "test_class_acc": 0.9990740740740741,
+    "test_angle_within_tol": 0.8270003089280198,
+    "test_angle_within_tol_sym": 0.9894964473277726,
+    "test_angle_median_err_sym": 1.0199562048399713,
+    "test_ece": 0.0006271491172137105,
+    "test_coverage": 0.0952020202020202,
+    "test_wrong_pick_rate": 0.002652519893899204,
+    "test_unknown_accept_rate": 0.0,
+    "test_auroc_ood": 0.954664780521262,
+    "test_auroc_prob": 0.9369521604938271,
+    "latency_ms": 0.7032021969698322,
+    "test_coverage_r2": 0.09974747474747475,
+    "test_wrong_pick_rate_r2": 0.002531645569620253,
+    "test_coverage_r5": 0.5356060606060606,
+    "test_wrong_pick_rate_r5": 0.055634134842055635
+  },
+  "deploy_calibration": {
+    "calibration_set": "vistas a 5\u00b0 de los 90 conocidos (3.240) + 10 desconocidos completos (720)",
+    "unknown_prevalence_assumed": 0.02,
+    "max_risk": 0.015,
+    "ood_quantile": 0.9,
+    "coverage_known": 0.9,
+    "wrong_pick_rate_known": 0.009259259259259259,
+    "coverage_in_sample": 0.7565656565656566,
+    "wrong_pick_rate_in_sample": 0.03571428571428571,
+    "unknown_accept_rate_in_sample": 0.1111111111111111
+  }
+}

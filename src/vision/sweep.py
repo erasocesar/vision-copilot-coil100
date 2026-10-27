@@ -28,6 +28,12 @@ DATA_SHA = "fcb4b8b01c0778f416d8d7a09f45082c4f7075cc74743dcddd5c44307bd4afe7"
 PROTOCOLS = ["A", "B", "C", "D"]
 CLASS_SETS = [["color", "hog"], ["color", "hog", "lbp"], ["color", "lbp", "pixels"]]
 CLASSIFIERS = ["knn", "svm", "rf", "logreg"]
+# Supuesto de negocio: fracción de piezas de productos no dados de alta que llegan a la línea.
+UNKNOWN_PREVALENCE = 0.02
+# Punto de trabajo del despliegue (ver reporte, sección 7): el error residual en conocidos (~1 %) no baja
+# con el umbral; lo que se controla es cuántos desconocidos se cuelan. Puerta de distancia más estricta.
+DEPLOY_MAX_RISK = 0.015
+DEPLOY_OOD_QUANTILE = 0.90
 
 BASELINE = ModelConfig(classifier="knn", class_features=["pixels"], angle_features=["pixels"],
                        pca_dims=0, k_angle=1, calibrate=False)
@@ -111,8 +117,12 @@ def stage_export(index, images, feats, out=Path("models/vision/v1.0.0")):
     cfg = best_classical()
     ang = df[df.family == "angle"]
     if len(ang):
-        best_angle = ang.groupby("name")["selection_score"].mean().idxmax()
-        method, k = best_angle.rsplit("-k", 1)
+        # Compara las variantes de ángulo con la configuración del barrido (knn, k=2) en validación.
+        grid_name = f"{cfg.classifier}-{'+'.join(cfg.class_features)}"
+        scores = ang.groupby("name")["selection_score"].mean()
+        scores[f"knn-k{cfg.k_angle}"] = df[(df.family == "classical") & (df.name == grid_name)]["selection_score"].mean()
+        print("Ángulo (validación):", scores.round(4).to_dict())
+        method, k = scores.idxmax().rsplit("-k", 1)
         cfg = replace(cfg, angle_method=method, k_angle=int(k))
     res = run_protocol("D", cfg, index, feats, DATA_SHA, run_name="export-v1.0.0")
     model = res["model"]
@@ -125,11 +135,17 @@ def stage_export(index, images, feats, out=Path("models/vision/v1.0.0")):
     # Calibración de despliegue: el punto de trabajo del artefacto se recalibra con las vistas
     # intermedias (5°) y los 10 desconocidos, que se parecen a la operación real. Las métricas del
     # protocolo D (metrics.json, "protocol_D") se calcularon antes con umbrales de validación.
-    deploy_th = choose_thresholds(res["test"], 0.01)
+    deploy_th = choose_thresholds(res["test"], DEPLOY_MAX_RISK, unknown_prevalence=UNKNOWN_PREVALENCE,
+                                  ood_quantile=DEPLOY_OOD_QUANTILE)
     calib = res["test"]
     acc = accepted_mask(calib, deploy_th)
     good = (calib.cls_ok & (calib.err_sym <= 10)).to_numpy()
-    deploy_info = {"calibration_set": "vistas a 5° de los 90 conocidos + 10 desconocidos (720 vistas)",
+    known = calib.known.to_numpy()
+    deploy_info = {"calibration_set": "vistas a 5° de los 90 conocidos (3.240) + 10 desconocidos completos (720)",
+                   "unknown_prevalence_assumed": UNKNOWN_PREVALENCE,
+                   "max_risk": DEPLOY_MAX_RISK, "ood_quantile": DEPLOY_OOD_QUANTILE,
+                   "coverage_known": float(acc[known].mean()),
+                   "wrong_pick_rate_known": float((~good[acc & known]).mean()) if (acc & known).any() else 0.0,
                    "coverage_in_sample": float(acc.mean()),
                    "wrong_pick_rate_in_sample": float((~good[acc]).mean()) if acc.any() else 0.0,
                    "unknown_accept_rate_in_sample": float(acc[~calib.known.to_numpy()].mean())}

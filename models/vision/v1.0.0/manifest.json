@@ -1,0 +1,36 @@
+{
+  "version": "1.0.0",
+  "created_utc": "2026-10-27T09:53:12+00:00",
+  "data_sha256": "fcb4b8b01c0778f416d8d7a09f45082c4f7075cc74743dcddd5c44307bd4afe7",
+  "train_split": "D (90 objetos conocidos, vistas cada 10°)",
+  "unknown_objs": [
+    9,
+    10,
+    20,
+    42,
+    61,
+    69,
+    72,
+    83,
+    95,
+    97
+  ],
+  "config": {
+    "classifier": "logreg",
+    "class_features": [
+      "color",
+      "lbp",
+      "pixels"
+    ],
+    "angle_features": [
+      "hog",
+      "pixels"
+    ],
+    "pca_dims": 128,
+    "k_angle": 3,
+    "angle_method": "kernel_ridge",
+    "calibrate": true,
+    "seed": 42
+  },
+  "model_sha256": "0a991d73e7db29b9ee218f6fa130b5219e19eeeba4a36340fdf2128f836f09ad"
+}
