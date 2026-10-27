@@ -117,13 +117,13 @@ def run_case(case: dict, settings: Settings, llm, vision: VisionClient, tpl: Pat
     sku = case.get("sku_views")
     msg = case["message"]
     if ids:
-        msg += "\n[imágenes adjuntas: " + ", ".join(ids) + "]"
+        msg += "\n[imágenes adjuntas (image_id): " + ", ".join(i[:12] for i in ids) + "]"
     if sku:
         files = sorted((assets / sku["dir"]).glob("view_*.png"))
         files = [f for f in files if int(f.stem.split("_")[1]) % sku["every"] == 0]
         vids = [upload(vision, f) for f in files]
         angles = [int(f.stem.split("_")[1]) for f in files]
-        msg += f"\n[vistas del producto nuevo: image_ids={vids} angles={angles}]"
+        msg += f"\n[vistas del producto nuevo: image_ids={[v[:12] for v in vids]} angles={angles}]"
     vision.failures, vision.open_until = 0, 0.0
     fault = case.get("vision_fault")
     original_post = vision.http.post

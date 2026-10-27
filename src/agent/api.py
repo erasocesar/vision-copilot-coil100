@@ -165,7 +165,7 @@ def create_app(settings: Settings | None = None, llm=None, vision=None) -> FastA
         global_msgs.append(now)
         msg = approval_notes(sess) + body.message
         if body.image_ids:
-            msg += "\n[imágenes adjuntas: " + ", ".join(body.image_ids) + "]"
+            msg += "\n[imágenes adjuntas (image_id): " + ", ".join(i[:12] for i in body.image_ids) + "]"
         out = run_turn(ctx_for(sess), llm, msg, saver, s)
         return {"reply": out["reply"], "tool_trace": [{"tool": t["tool"], "status": t["status"]} for t in out["tools_used"]],
                 "pending_approval": out["pending_approval_id"], "stop_reason": out["stop_reason"]}

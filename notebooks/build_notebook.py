@@ -133,7 +133,7 @@ best_name = mean_score.index[0]; print("Mejor clásico:", best_name)
 """)
 md("### Comparación obligatoria: baseline, mejor clásico y referencia moderna")
 code("""
-ref = summary[summary.family == "reference"].groupby("protocol").apply(lambda g: g.sort_values("test_class_acc").iloc[-1]).reset_index(drop=True)
+ref = summary[summary.family == "reference"].sort_values("test_class_acc").groupby("protocol").tail(1)
 rows = []
 for p in "ABCD":
     for fam, name in [("baseline", "1nn-pixels"), ("classical", best_name)]:

@@ -20,7 +20,7 @@
     "test_unknown_accept_rate": 0.0,
     "test_auroc_ood": 0.954664780521262,
     "test_auroc_prob": 0.9369521604938271,
-    "latency_ms": 0.7032021969698322,
+    "latency_ms": 0.7133255808083858,
     "test_coverage_r2": 0.09974747474747475,
     "test_wrong_pick_rate_r2": 0.002531645569620253,
     "test_coverage_r5": 0.5356060606060606,
