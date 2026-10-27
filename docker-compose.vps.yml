@@ -1,7 +1,7 @@
 # Override para el VPS con Traefik ya instalado (red externa root_default, resolvedor mytlschallenge).
 # Uso en el VPS:
 #   docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
-# Requiere en .env: ML_INDRA_HOST, ML_INDRA_BASICAUTH, DEMO_FAULTS y DEMO_ROLE_SELECTION (usuario:hash bcrypt de htpasswd -nbB, con cada $ duplicado).
+# Requiere en .env: ML_INDRA_HOST, ML_INDRA_BASICAUTH (usuario:hash bcrypt de htpasswd -nbB, con cada $ duplicado), DEMO_FAULTS y DEMO_ROLE_SELECTION.
 
 services:
   vision-api:
