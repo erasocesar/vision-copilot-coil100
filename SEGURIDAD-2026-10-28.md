@@ -45,14 +45,14 @@ Escaneo del repositorio completo en la revisión `7b8eb75`, modo codebase, esfue
 
 | Hallazgo | Severidad | Estado |
 |---|---|---|
-| F1: `evaluate_sku_candidate` podía pisar el estado `production`, reservado a la aprobación del `plant_manager` (CWE-841) | Baja | Corregido |
-| F2: `submit_review_label` guardaba como `human_review` una etiqueta elegida por el LLM, alcanzable por inyección vía título de ticket (CWE-441) | Baja | Mitigado, queda un paso |
+| F1: `evaluate_sku_candidate` podía pisar el estado `production`, reservado a la aprobación del `plant_manager` (CWE-841) | Baja | Corregido en `31170bf` |
+| F2: `submit_review_label` guardaba como `human_review` una etiqueta elegida por el LLM, alcanzable por inyección vía título de ticket (CWE-441) | Baja | Mitigado en `6dfecfb` y `7e76037`, queda un paso |
 
 **F1.** La herramienta solo evalúa desde `registered`, `evaluated_ok` y `evaluated_fail`; con `production` devuelve `invalid_state`. El `UPDATE` es condicional al estado y comprueba `rowcount`, de modo que una promoción concurrente durante la evaluación tampoco se pisa. Tests: `test_sku_evaluate_cannot_overwrite_production` y su variante con carrera.
 
 **F2.** Se aplicó la mitigación rápida: el origen en `retrain_dataset` pasa a `agent_proposed`, y `generate_shift_report` ya no devuelve los títulos de ticket (solo `ticket_id` y `priority`), con lo que el texto libre de otros usuarios no llega al LLM por esa vía. Tests: `test_label_source_is_not_human_review` y `test_shift_report_omits_ticket_titles`. El éxito del ataque dependía de que el modelo obedeciera, y eso sigue sin garantía en código. Lo que falta es una confirmación humana determinista para `submit_review_label` (aprobación pendiente ligada a `case_id`, `obj_id` y `angle`), como ya existe para las operaciones de riesgo. No se hizo por plazo: añade un flujo nuevo y riesgo de romper lo que funciona. Mientras tanto, ningún reentrenamiento llega a producción sin evaluación y aprobación (`promote_model`).
 
-El informe completo del escáner está en `CLAUDE-SECURITY-20261028-054913/CLAUDE-SECURITY-RESULTS.md` (carpeta local, fuera del repositorio).
+El informe completo del escáner, sin modificar, está en [`docs/seguridad/CLAUDE-SECURITY-RESULTS.md`](docs/seguridad/CLAUDE-SECURITY-RESULTS.md). Los commits `31170bf` (F1), `6dfecfb` (F2, origen de las etiquetas), `7e76037` (F2, títulos fuera del informe de turno) y `31f9644` (este registro) siguen a la revisión escaneada, `7b8eb75`.
 
 ## Servidor (VPS)
 
