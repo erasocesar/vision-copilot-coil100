@@ -11,6 +11,7 @@ from . import ToolError, register
 from .image import image_path
 
 MAX_GAP_DEG = 15
+EVALUABLE_STATES = ("registered", "evaluated_ok", "evaluated_fail")
 
 
 class RegisterIn(BaseModel):
@@ -70,11 +71,20 @@ def evaluate_sku_candidate(ctx, a: EvaluateIn) -> dict:
     c = c[0]
     if c["status"] == "insufficient":
         raise ToolError("insufficient_views", f"el candidato tiene un hueco de {c['max_gap_deg']}°; registra más vistas")
+    # 'production' solo lo fija una aprobación (approvals.execute); esta tool no puede reescribirlo.
+    if c["status"] not in EVALUABLE_STATES:
+        raise ToolError("invalid_state", f"el candidato está en estado {c['status']} y no se puede evaluar")
     ids, angles = json.loads(c["image_ids"]), json.loads(c["angles"])
     metrics = ctx.vision.evaluate_views([image_path(ctx, i) for i in ids], angles)
     status = "evaluated_ok" if metrics["meets_criteria"] else "evaluated_fail"
-    ctx.conn.execute("UPDATE sku_candidates SET status=?, metrics_json=? WHERE candidate_id=?",
-                     (status, json.dumps(metrics), a.candidate_id))
+    # La evaluación tarda: si mientras tanto se promovió el candidato, este UPDATE no debe pisar 'production'.
+    placeholders = ",".join("?" * len(EVALUABLE_STATES))
+    cur = ctx.conn.execute(
+        "UPDATE sku_candidates SET status=?, metrics_json=? WHERE candidate_id=? AND plant_id=? AND line_id=?"
+        f" AND status IN ({placeholders})",
+        (status, json.dumps(metrics), a.candidate_id, ctx.plant_id, ctx.line_id, *EVALUABLE_STATES))
+    if cur.rowcount != 1:
+        raise ToolError("invalid_state", "el estado del candidato cambió durante la evaluación; no se ha modificado")
     ctx.conn.commit()
     return {"candidate_id": a.candidate_id, "status": status, **metrics,
             "next_step": "pedir promote_sku con request_risk_operation" if status == "evaluated_ok" else

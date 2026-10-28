@@ -136,6 +136,39 @@ def test_sku_register_and_evaluate(make_ctx):
     assert ev["status"] == "evaluated_ok"
 
 
+def test_sku_evaluate_cannot_overwrite_production(make_ctx, db):
+    ids = [f"{i:064x}" for i in range(12)] * 3
+    out = run_tool(make_ctx(role="ml_engineer"), "register_sku_candidate",
+                   {"name": "Nuevo envase", "image_ids": ids, "angles": list(range(0, 360, 10))})
+    cid = out["candidate_id"]
+    run_tool(make_ctx(role="ml_engineer"), "evaluate_sku_candidate", {"candidate_id": cid})
+    db.execute("UPDATE sku_candidates SET status='production' WHERE candidate_id=?", (cid,))
+    db.commit()
+    metrics_before = rows(db, "SELECT metrics_json FROM sku_candidates WHERE candidate_id=?", (cid,))[0]
+    ev = run_tool(make_ctx(role="quality"), "evaluate_sku_candidate", {"candidate_id": cid})
+    assert ev["error"] == "invalid_state"
+    after = rows(db, "SELECT status, metrics_json FROM sku_candidates WHERE candidate_id=?", (cid,))[0]
+    assert after["status"] == "production" and after["metrics_json"] == metrics_before["metrics_json"]
+
+
+def test_sku_evaluate_does_not_overwrite_promotion_during_evaluation(make_ctx, db):
+    ids = [f"{i:064x}" for i in range(12)] * 3
+    out = run_tool(make_ctx(role="ml_engineer"), "register_sku_candidate",
+                   {"name": "Nuevo envase", "image_ids": ids, "angles": list(range(0, 360, 10))})
+    cid = out["candidate_id"]
+    ctx = make_ctx(role="ml_engineer")
+    original = ctx.vision.evaluate_views
+
+    def promote_while_evaluating(paths, angles):  # simula una aprobación que llega durante la evaluación
+        db.execute("UPDATE sku_candidates SET status='production' WHERE candidate_id=?", (cid,))
+        db.commit()
+        return original(paths, angles)
+    ctx.vision.evaluate_views = promote_while_evaluating
+    ev = run_tool(ctx, "evaluate_sku_candidate", {"candidate_id": cid})
+    assert ev["error"] == "invalid_state"
+    assert rows(db, "SELECT status FROM sku_candidates WHERE candidate_id=?", (cid,))[0]["status"] == "production"
+
+
 def test_risk_operation_never_executes(make_ctx, db):
     out = run_tool(make_ctx(role="quality"), "request_risk_operation",
                    {"op": "set_threshold", "params": {"min_pick_score": 0.9}, "justification": "demasiados desvíos"})
@@ -160,3 +193,4 @@ def test_sku_rejects_path_like_ids(make_ctx):
     out = run_tool(make_ctx(role="ml_engineer"), "register_sku_candidate",
                    {"name": "x envase", "image_ids": ids, "angles": list(range(0, 60, 10))})
     assert out["error"] == "invalid_args"
+
