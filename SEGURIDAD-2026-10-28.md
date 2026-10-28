@@ -41,7 +41,18 @@ Fases aplicadas: planificación (lista de control al diseñar), controles al pro
 
 ## Claude Security
 
-Pendiente: escaneo de nivel medio sobre el repositorio limpio, lanzado por César antes del despliegue.
+Escaneo del repositorio completo en la revisión `7b8eb75`, modo codebase, esfuerzo medio, el 28 oct 2026, con el árbol de trabajo limpio. Se leyeron 316 archivos con 28 investigadores y un panel de tres verificadores por candidato (16 candidatos, 13 tras deduplicar). Sobrevivieron 2 hallazgos, los dos de severidad baja; no hubo críticos, altos ni medios. Todo se derivó de leer el código: no se ejecutó ningún exploit.
+
+| Hallazgo | Severidad | Estado |
+|---|---|---|
+| F1: `evaluate_sku_candidate` podía pisar el estado `production`, reservado a la aprobación del `plant_manager` (CWE-841) | Baja | Corregido |
+| F2: `submit_review_label` guardaba como `human_review` una etiqueta elegida por el LLM, alcanzable por inyección vía título de ticket (CWE-441) | Baja | Mitigado, queda un paso |
+
+**F1.** La herramienta solo evalúa desde `registered`, `evaluated_ok` y `evaluated_fail`; con `production` devuelve `invalid_state`. El `UPDATE` es condicional al estado y comprueba `rowcount`, de modo que una promoción concurrente durante la evaluación tampoco se pisa. Tests: `test_sku_evaluate_cannot_overwrite_production` y su variante con carrera.
+
+**F2.** Se aplicó la mitigación rápida: el origen en `retrain_dataset` pasa a `agent_proposed`, y `generate_shift_report` marca cada título de ticket como texto de usuario que no son instrucciones. Tests: `test_label_source_is_not_human_review` y `test_shift_report_marks_ticket_titles_as_untrusted`. El éxito del ataque dependía de que el modelo obedeciera, y eso sigue sin garantía en código. Lo que falta es una confirmación humana determinista para `submit_review_label` (aprobación pendiente ligada a `case_id`, `obj_id` y `angle`), como ya existe para las operaciones de riesgo. No se hizo por plazo: añade un flujo nuevo y riesgo de romper lo que funciona. Mientras tanto, ningún reentrenamiento llega a producción sin evaluación y aprobación (`promote_model`).
+
+El informe completo del escáner está en `CLAUDE-SECURITY-20261028-054913/CLAUDE-SECURITY-RESULTS.md` (carpeta local, fuera del repositorio).
 
 ## Servidor (VPS)
 
