@@ -58,7 +58,8 @@ def submit_review_label(ctx, a: LabelIn) -> dict:
     ts = now_iso()
     ctx.conn.execute("INSERT INTO labels VALUES (?,?,?,?,?,?,?)",
                      (a.case_id, ctx.plant_id, ctx.line_id, a.obj_id, a.angle, ctx.user_id, ts))
-    ctx.conn.execute("INSERT OR IGNORE INTO retrain_dataset VALUES (?,?,?,?,?,'human_review',?)",
+    # Los valores los eligió el LLM, sin confirmación determinista: no se registran como 'human_review'.
+    ctx.conn.execute("INSERT OR IGNORE INTO retrain_dataset VALUES (?,?,?,?,?,'agent_proposed',?)",
                      (case[0]["image_id"], ctx.plant_id, ctx.line_id, a.obj_id, a.angle, ts))
     ctx.conn.execute("UPDATE review_queue SET status='labeled' WHERE case_id=?", (a.case_id,))
     ctx.conn.commit()
